@@ -433,6 +433,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ba43ea6f343b788c8764558649e08df62f86c6ef251fdaeb1ffd010a9ae50a2"
 
 [[package]]
+name = "base64-url"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c5b0a88aa36e9f095ee2e2b13fb8c5e4313e022783aedacc123328c0084916d"
+dependencies = [
+ "base64 0.21.4",
+]
+
+[[package]]
 name = "base64ct"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -645,7 +654,7 @@ dependencies = [
  "hex",
  "http",
  "iri-string",
- "libipld",
+ "libipld 0.14.0",
  "serde",
  "serde_with 2.3.3",
  "siwe",
@@ -763,6 +772,20 @@ dependencies = [
  "core2",
  "multibase 0.9.1",
  "multihash 0.17.0",
+ "serde",
+ "serde_bytes",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "cid"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd94671561e36e4e7de75f753f577edafb0e7c05d6e4547229fdf7938fbcd2c3"
+dependencies = [
+ "core2",
+ "multibase 0.9.1",
+ "multihash 0.18.1",
  "serde",
  "serde_bytes",
  "unsigned-varint",
@@ -1231,6 +1254,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dag-jose"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8195b7869cf9bc5ba0b91b726ff781023003349c82423850919256bd3c928a4e"
+dependencies = [
+ "anyhow",
+ "base64-url",
+ "libipld 0.16.0",
+ "serde",
+ "serde_derive",
+ "serde_ipld_dagcbor",
+ "thiserror",
+]
+
+[[package]]
 name = "darling"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1386,6 +1424,7 @@ dependencies = [
  "ed25519-dalek",
  "futures",
  "hex",
+ "int-enum",
  "iroh",
  "iroh-bytes",
  "iroh-net",
@@ -1408,7 +1447,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ceramic-core",
+ "dag-jose",
  "int-enum",
+ "json-patch",
+ "libipld 0.16.0",
  "multibase 0.9.1",
  "serde",
  "serde_json",
@@ -3356,14 +3398,32 @@ dependencies = [
  "async-trait",
  "cached",
  "fnv",
- "libipld-cbor",
- "libipld-cbor-derive",
- "libipld-core",
- "libipld-json",
- "libipld-macro",
+ "libipld-cbor 0.14.0",
+ "libipld-cbor-derive 0.14.0",
+ "libipld-core 0.14.0",
+ "libipld-json 0.14.0",
+ "libipld-macro 0.14.0",
  "log",
  "multihash 0.16.3",
  "parking_lot",
+ "thiserror",
+]
+
+[[package]]
+name = "libipld"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1ccd6b8ffb3afee7081fcaec00e1b099fd1c7ccf35ba5729d88538fcc3b4599"
+dependencies = [
+ "fnv",
+ "libipld-cbor 0.16.0",
+ "libipld-cbor-derive 0.16.0",
+ "libipld-core 0.16.0",
+ "libipld-json 0.16.0",
+ "libipld-macro 0.16.0",
+ "libipld-pb",
+ "log",
+ "multihash 0.18.1",
  "thiserror",
 ]
 
@@ -3374,7 +3434,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8dd1ab68c9d26f20c7d0dfea6eecbae8c00359875210001b33ca27d4a02f3d09"
 dependencies = [
  "byteorder",
- "libipld-core",
+ "libipld-core 0.14.0",
+ "thiserror",
+]
+
+[[package]]
+name = "libipld-cbor"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77d98c9d1747aa5eef1cf099cd648c3fd2d235249f5fed07522aaebc348e423b"
+dependencies = [
+ "byteorder",
+ "libipld-core 0.16.0",
  "thiserror",
 ]
 
@@ -3383,6 +3454,19 @@ name = "libipld-cbor-derive"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69ec2f49393a1347a2d95ebcb248ff75d0d47235919b678036c010a8cd927375"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "synstructure",
+]
+
+[[package]]
+name = "libipld-cbor-derive"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d5ba3a729b72973e456a1812b0afe2e176a376c1836cc1528e9fc98ae8cb838"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -3407,13 +3491,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "libipld-core"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5acd707e8d8b092e967b2af978ed84709eaded82b75effe6cb6f6cc797ef8158"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
+ "core2",
+ "multibase 0.9.1",
+ "multihash 0.18.1",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "libipld-json"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18aa481a87f084d98473dd9ece253a9569c762b75f6bbba8217d54e48c9d63b3"
 dependencies = [
- "libipld-core",
+ "libipld-core 0.14.0",
  "multihash 0.16.3",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "libipld-json"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25856def940047b07b25c33d4e66d248597049ab0202085215dc4dca0487731c"
+dependencies = [
+ "libipld-core 0.16.0",
+ "multihash 0.18.1",
  "serde",
  "serde_json",
 ]
@@ -3424,7 +3535,28 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "852c011562ae5059b67c3a917f9f5945af5a68df8e39ede4444fff33274d25e2"
 dependencies = [
- "libipld-core",
+ "libipld-core 0.14.0",
+]
+
+[[package]]
+name = "libipld-macro"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71171c54214f866ae6722f3027f81dff0931e600e5a61e6b1b6a49ca0b5ed4ae"
+dependencies = [
+ "libipld-core 0.16.0",
+]
+
+[[package]]
+name = "libipld-pb"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3f2d0f866c4cd5dc9aa8068c429ba478d2882a3a4b70ab56f7e9a0eddf5d16f"
+dependencies = [
+ "bytes",
+ "libipld-core 0.16.0",
+ "quick-protobuf",
+ "thiserror",
 ]
 
 [[package]]
@@ -3709,6 +3841,25 @@ name = "multihash"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835d6ff01d610179fbce3de1694d007e500bf33a7f29689838941d6bf783ae40"
+dependencies = [
+ "blake2b_simd 1.0.2",
+ "blake2s_simd",
+ "blake3",
+ "core2",
+ "digest 0.10.7",
+ "multihash-derive",
+ "serde",
+ "serde-big-array",
+ "sha2 0.10.8",
+ "sha3",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "multihash"
+version = "0.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfd8a792c1694c6da4f68db0a9d707c72bd260994da179e6030a5dcee00bb815"
 dependencies = [
  "blake2b_simd 1.0.2",
  "blake2s_simd",
@@ -6127,7 +6278,7 @@ checksum = "0982f62c7860922026a9d9edc6c604de79693ee4c5c6bd65be11e2ff66b1df09"
 dependencies = [
  "base64 0.12.3",
  "chrono",
- "libipld",
+ "libipld 0.14.0",
  "serde",
  "serde_json",
  "serde_with 1.14.0",
@@ -6153,7 +6304,7 @@ dependencies = [
  "chrono",
  "flate2",
  "iref",
- "libipld",
+ "libipld 0.14.0",
  "multihash 0.16.3",
  "reqwest",
  "serde",
@@ -6676,9 +6827,9 @@ checksum = "b6bc1c9ce2b5135ac7f93c72918fc37feb872bdc6a5533a8b85eb4b86bfdae52"
 
 [[package]]
 name = "tracing"
-version = "0.1.39"
+version = "0.1.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee2ef2af84856a50c1d430afce2fdded0a4ec7eda868db86409b4543df0797f9"
+checksum = "c3523ab5a71916ccf420eebdf5521fcef02141234bbc0b8a49f2fdc4544364ef"
 dependencies = [
  "log",
  "pin-project-lite",
@@ -6943,9 +7094,9 @@ checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
 
 [[package]]
 name = "value-bag"
-version = "1.4.1"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d92ccd67fb88503048c01b59152a04effd0782d035a83a6d256ce6085f08f4a3"
+checksum = "4a72e1902dde2bd6441347de2b70b7f5d59bf157c6c62f0c44572607a1d55bbe"
 
 [[package]]
 name = "version_check"
