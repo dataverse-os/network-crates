@@ -5,7 +5,7 @@ use ceramic_core::StreamId;
 use dataverse_types::ceramic::StreamState;
 use futures::TryStreamExt;
 use iroh::baomap::flat::Store as BaoFileStore;
-use iroh::net::key::SecretKey;
+pub use iroh::net::key::SecretKey;
 use iroh::{
     client::mem::{Doc, Iroh},
     node::Node,
@@ -299,6 +299,7 @@ mod test {
     async fn init_client() -> anyhow::Result<Client> {
         let key = SecretKey::from_str("vprfpdhssy5erwum2ql2sijgpr4rpeq4zacwcjrbxfmxmwtgeo3a")?;
         let temp = tempfile::tempdir()?;
+        println!("temp dir: {:?}", temp);
         let key_set = KeySet {
             author: "q7eqbabgzwhu6be7xiy67jkajevrawb32cauytinv6aw4szlozka".to_string(),
             model: "lmnjsx6pmazhkr5ixhhtaw365pcengpawe36yhczcw6qrz2xxqzq".to_string(),

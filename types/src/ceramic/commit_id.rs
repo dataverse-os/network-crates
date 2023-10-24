@@ -19,7 +19,9 @@ impl CommitId {
                 let mut buf = encode::u64_buffer();
                 writer.write_all(encode::u64(0, &mut buf))?;
             }
-            false => self.tip.write_bytes(writer)?,
+            false => {
+                self.tip.write_bytes(writer)?;
+            }
         }
         Ok(())
     }

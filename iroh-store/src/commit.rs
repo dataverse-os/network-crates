@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 pub struct Genesis {
     pub r#type: u64,
     pub genesis: Content,
-    pub opts: Option,
+    pub opts: serde_json::Value,
 }
 
 impl Genesis {
@@ -33,8 +33,14 @@ impl Genesis {
 #[serde(rename_all = "camelCase")]
 pub struct Data {
     pub stream_id: StreamId,
-    pub commit: Content,
-    pub opts: Option,
+    pub commit: DataCommit,
+    pub opts: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataCommit {
+    pub jws: Content,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -53,15 +59,6 @@ impl Content {
     pub fn cid(&self) -> anyhow::Result<Cid> {
         Ok(Cid::from_str(&self.jws.cid()?.to_string())?)
     }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Option {
-    pub anchor: bool,
-    pub publish: bool,
-    pub sync: u64,
-    pub sync_timeout_seconds: u64,
 }
 
 #[cfg(test)]
@@ -155,7 +152,7 @@ mod tests {
         assert!(commit.is_ok());
         let commit = commit.unwrap();
 
-        let cid = commit.commit.cid()?;
+        let cid = commit.commit.jws.cid()?;
         println!("commit cid: {}", cid);
         assert_eq!(
             cid.to_string(),
