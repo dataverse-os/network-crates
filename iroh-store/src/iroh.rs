@@ -186,7 +186,10 @@ impl Client {
     ) -> anyhow::Result<Option<StreamState>> {
         let model_id = match model_id {
             Some(id) => id.clone(),
-            None => self.get_model_of_stream(stream_id).await?,
+            None => match self.get_model_of_stream(stream_id).await {
+                Ok(id) => id,
+                Err(_) => return Ok(None),
+            },
         };
 
         let doc = self.lookup_model_doc(&model_id).await?;
