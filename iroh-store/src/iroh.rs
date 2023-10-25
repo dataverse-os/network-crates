@@ -202,7 +202,7 @@ impl Client {
 
             return Ok(Some(stream.state));
         }
-        anyhow::bail!("not found")
+        Ok(None)
     }
 
     async fn load_stream_patch(&self, stream_id: &StreamId) -> anyhow::Result<Option<StreamPatch>> {
