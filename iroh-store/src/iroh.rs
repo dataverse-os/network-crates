@@ -245,7 +245,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn load_streams2(&self, stream_id: &StreamId) -> anyhow::Result<Stream2> {
+    pub async fn load_stream2(&self, stream_id: &StreamId) -> anyhow::Result<Stream2> {
         let key = stream_id.to_vec()?;
         let mut stream = self.genesis.get_many(GetFilter::Key(key)).await?;
         if let Some(entry) = stream.try_next().await? {
@@ -256,8 +256,22 @@ impl Client {
         anyhow::bail!("not found")
     }
 
+    pub async fn load_streams2(&self, model_id: &StreamId) -> anyhow::Result<Vec<StreamState>> {
+        let mut result = Vec::new();
+        let mut stream = self.genesis.get_many(GetFilter::All).await?;
+        while let Some(entry) = stream.try_next().await? {
+            let content = self.genesis.read_to_bytes(&entry).await?;
+            let content: Stream2 = serde_json::from_slice(&content)?;
+            let state: StreamState = content.try_into()?;
+            if state.model()? == *model_id {
+                result.push(state);
+            }
+        }
+        Ok(result)
+    }
+
     pub async fn save_data_commit(&self, data: Data) -> anyhow::Result<()> {
-        let mut stream = self.load_streams2(&data.stream_id).await?;
+        let mut stream = self.load_stream2(&data.stream_id).await?;
         stream.commits.push(data.commit.jws.try_into()?);
         self.save_stream2(stream).await
     }
@@ -439,13 +453,18 @@ mod test {
 
         let stream_id =
             "kjzl6kcym7w8y7aq5fcqraw3vk69f2syk6kpcmcs6xojujxf9batubj5ibki495".parse()?;
-        let stream = client.load_streams2(&stream_id).await;
+        let stream = client.load_stream2(&stream_id).await;
         assert!(stream.is_ok());
 
         let state: anyhow::Result<StreamState> = stream.unwrap().try_into();
         assert!(state.is_ok());
-
         println!("state: {:?}", serde_json::to_string(&state.unwrap())?);
+
+        let model_id = "kjzl6hvfrbw6c86gt9j415yw2x8stmkotcrzpeutrbkp42i4z90gp5ibptz4sso".parse()?;
+
+        let streams = client.load_streams2(&model_id).await;
+        assert!(streams.is_ok());
+        assert_eq!(streams.unwrap().len(), 1);
 
         Ok(())
     }
