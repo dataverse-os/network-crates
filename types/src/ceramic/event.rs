@@ -57,6 +57,7 @@ impl TryFrom<ceramic_core::Jws> for Event {
             value: EventValue::Signed(SignedValue {
                 jws,
                 linked_block: None,
+                cacao_block: None,
             }),
         })
     }
@@ -104,6 +105,7 @@ impl EventValue {
 pub struct SignedValue {
     pub jws: ceramic_core::Jws,
     pub linked_block: Option<Vec<u8>>,
+    pub cacao_block: Option<Vec<u8>>,
 }
 
 impl SignedValue {
@@ -295,6 +297,7 @@ impl IpldDecodeFrom<SignedValue> for Vec<u8> {
         Ok(SignedValue {
             jws: node.decode_jws()?,
             linked_block: None,
+            cacao_block: None,
         })
     }
 }

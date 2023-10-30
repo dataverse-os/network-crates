@@ -1,10 +1,11 @@
 use std::str::FromStr;
 
-use anyhow::Context;
+use anyhow::{Context, Ok};
 use ceramic_core::{Base64String, Jws, StreamId};
 use ceramic_core::{Cid, StreamIdType};
-use dataverse_types::ceramic::event;
+use dataverse_types::ceramic::event::EventValue;
 use dataverse_types::ceramic::jws::ToCid;
+use dataverse_types::ceramic::{self, event};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -33,7 +34,7 @@ impl Genesis {
 #[serde(rename_all = "camelCase")]
 pub struct Data {
     pub stream_id: StreamId,
-    pub commit: DataCommit,
+    pub commit: Content,
     pub opts: serde_json::Value,
 }
 
@@ -49,6 +50,21 @@ pub struct Content {
     pub jws: Jws,
     pub linked_block: Base64String,
     pub cacao_block: Base64String,
+}
+
+impl TryInto<ceramic::event::Event> for Content {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<ceramic::event::Event, Self::Error> {
+        Ok(ceramic::event::Event {
+            cid: self.jws.cid()?,
+            value: EventValue::Signed(event::SignedValue {
+                jws: self.jws,
+                linked_block: Some(self.linked_block.to_vec()?),
+                cacao_block: Some(self.cacao_block.to_vec()?),
+            }),
+        })
+    }
 }
 
 impl Content {
