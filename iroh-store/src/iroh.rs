@@ -2,7 +2,8 @@ use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Context;
 use ceramic_core::StreamId;
-use dataverse_types::ceramic::{self, StreamState};
+use dataverse_ceramic::event;
+use dataverse_types::ceramic::StreamState;
 use futures::TryStreamExt;
 use iroh::baomap::flat::Store as BaoFileStore;
 pub use iroh::net::key::SecretKey;
@@ -291,7 +292,7 @@ impl Client {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stream2 {
     pub r#type: u64,
-    pub commits: Vec<ceramic::event::Event>,
+    pub commits: Vec<event::Event>,
 }
 
 impl Stream2 {

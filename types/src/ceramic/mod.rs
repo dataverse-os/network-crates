@@ -1,6 +1,4 @@
 mod commit_id;
-pub mod event;
-pub mod jws;
 mod stream;
 mod stream_id;
 

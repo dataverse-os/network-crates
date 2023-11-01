@@ -1,0 +1,36 @@
+{
+  "anchor": {},
+  "http-api": {
+    "hostname": "0.0.0.0",
+    "port": 7007,
+    "admin-dids": [
+      "did:key:z6MkeqCTPhHPVg3HaAAtsR7vZ6FXkAHPXEbTJs7Y4CQABV9Z"
+    ]
+  },
+  "ipfs": {
+    "mode": "bundled"
+  },
+  "logger": {
+    "log-directory": "/root/.ceramic/log",
+    "log-level": 2,
+    "log-to-files": true
+  },
+  "metrics": {
+    "metrics-exporter-enabled": false
+  },
+  "network": {
+    "name": "inmemory"
+  },
+  "node": {
+    "gateway": false
+  },
+  "state-store": {
+    "mode": "file",
+    "local-directory": "/root/.ceramic/statestore"
+  },
+  "indexing": {
+    "db": "sqlite:///root/.ceramic/ceramic.db",
+    "allow-queries-before-historical-sync": true,
+    "enable-historical-sync": false
+  }
+}

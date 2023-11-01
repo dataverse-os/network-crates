@@ -1,13 +1,13 @@
 use anyhow::Result;
 use ceramic_core::{Base64String, Base64UrlString, StreamId};
 use dag_jose::DagJoseCodec;
+use dataverse_types::ceramic::{StateLog, StreamState};
 use json_patch::Patch;
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid, json::DagJsonCodec, Ipld};
 use serde::{Deserialize, Serialize};
 
 use super::jws::ToCid;
-use super::{StateLog, StreamState};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Event {
@@ -45,6 +45,32 @@ impl Event {
         let codec = cid.codec();
         let value = EventValue::decode(codec, data)?;
         Ok(Event { cid, value })
+    }
+}
+
+impl TryFrom<ceramic_http_client::api::Commit> for Event {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ceramic_http_client::api::Commit) -> std::result::Result<Self, Self::Error> {
+        match value.value {
+            ceramic_http_client::api::CommitValue::Anchor(anchor) => Ok(Event {
+                cid: value.cid.as_ref().try_into()?,
+                value: EventValue::Anchor(AnchorValue {
+                    id: anchor.id.as_ref().try_into()?,
+                    prev: anchor.prev.as_ref().try_into()?,
+                    proof: anchor.proof.as_ref().try_into()?,
+                    path: anchor.path,
+                }),
+            }),
+            ceramic_http_client::api::CommitValue::Signed(signed) => Ok(Event {
+                cid: value.cid.as_ref().try_into()?,
+                value: EventValue::Signed(SignedValue {
+                    jws: signed.jws,
+                    linked_block: Some(signed.linked_block.to_vec()?),
+                    cacao_block: None,
+                }),
+            }),
+        }
     }
 }
 

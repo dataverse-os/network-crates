@@ -1,0 +1,30 @@
+[package]
+name = "dataverse-file-system"
+version = "0.1.0"
+edition = "2021"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = { workspace = true }
+async-std = { workspace = true }
+async-trait = { workspace = true }
+base64 = "0.21.3"
+ceramic-core = { workspace = true }
+ceramic-event = { workspace = true }
+ceramic-http-client = { workspace = true }
+chrono = { workspace = true }
+clap = { version = "4", features = ["derive", "env"] }
+dag-jose = "0.1.2"
+dapp-table-client = { workspace = true }
+dataverse-ceramic = { workspace = true }
+dataverse-iroh-store = { workspace = true }
+dataverse-types = { workspace = true }
+diesel = { version = "2.1.1", features = ["postgres", "chrono", "uuid", "r2d2", "serde_json", "postgres_backend"] }
+int-enum = { version = "0.5.0" }
+json-patch = { workspace = true }
+multibase = "0.9.1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+uuid = { workspace = true }
+
