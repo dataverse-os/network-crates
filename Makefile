@@ -18,4 +18,4 @@ clean:
 	rm -rf release
 
 test:
-	cargo test
+	cargo test --workspace --exclude ceramic-http-client

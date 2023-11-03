@@ -166,7 +166,7 @@ impl SignedValue {
     }
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, Default)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnchorValue {
     pub id: Cid,
     pub prev: Cid,

@@ -23,7 +23,7 @@ impl StreamFileLoader for dataverse_iroh_store::Client {
         model_id: &StreamId,
         content_id: &String,
     ) -> anyhow::Result<(StreamState, IndexFile)> {
-        let streams = self.load_streams2(&model_id).await?;
+        let streams = self.list_streams_in_model(&model_id).await?;
         for ele in streams {
             if let Ok(index_file) = serde_json::from_value::<IndexFile>(ele.content.clone()) {
                 if index_file.content_id == *content_id {

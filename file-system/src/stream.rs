@@ -64,7 +64,7 @@ impl StreamLoader for dataverse_iroh_store::Client {
         _ceramic: &String,
         stream_id: &StreamId,
     ) -> anyhow::Result<StreamState> {
-        let stream = self.load_stream2(stream_id).await?;
+        let stream = self.load_stream(stream_id).await?;
         stream.try_into()
     }
 
@@ -74,7 +74,7 @@ impl StreamLoader for dataverse_iroh_store::Client {
         _ceramic: &String,
         model_id: &StreamId,
     ) -> anyhow::Result<Vec<StreamState>> {
-        self.load_streams2(model_id).await
+        self.list_streams_in_model(model_id).await
     }
 }
 
