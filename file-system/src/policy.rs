@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use ceramic_core::StreamId;
 use dataverse_ceramic::{event::EventValue, stream::EventsLoader};
-use dataverse_types::ceramic::{self, StreamState};
+use dataverse_types::ceramic::{self, StreamId, StreamState};
 use int_enum::IntEnum;
 use json_patch::{Patch, PatchOperation};
 use serde_json::Value;

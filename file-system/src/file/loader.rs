@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use ceramic_core::StreamId;
 use ceramic_http_client::{FilterQuery, OperationFilter};
-use dataverse_types::ceramic::StreamState;
+use dataverse_types::ceramic::{StreamId, StreamState};
 
 use crate::{index_file::IndexFile, stream::StreamLoader};
 

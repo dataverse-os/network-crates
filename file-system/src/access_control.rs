@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use base64::Engine;
-use ceramic_core::StreamId;
+use dataverse_types::ceramic::StreamId;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

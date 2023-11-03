@@ -84,7 +84,7 @@ mod tests {
 
     use super::*;
 
-    use ceramic_core::StreamId;
+    use dataverse_types::ceramic::StreamId;
     use serde_json::{from_value, json};
     use std::str::FromStr;
 

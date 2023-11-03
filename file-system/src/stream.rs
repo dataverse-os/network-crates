@@ -1,6 +1,5 @@
 use anyhow::{Context, Ok};
-use ceramic_core::StreamId;
-use dataverse_types::ceramic::StreamState;
+use dataverse_types::ceramic::{StreamId, StreamState};
 
 #[async_trait::async_trait]
 pub trait StreamLoader {

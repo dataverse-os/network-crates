@@ -1,9 +1,8 @@
 use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Context;
-use ceramic_core::StreamId;
 use dataverse_ceramic::event;
-use dataverse_types::ceramic::StreamState;
+use dataverse_types::ceramic::{StreamId, StreamState};
 use futures::TryStreamExt;
 use iroh::baomap::flat::Store as BaoFileStore;
 pub use iroh::net::key::SecretKey;

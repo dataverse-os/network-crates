@@ -1,5 +1,4 @@
-use ceramic_core::StreamId;
-use dataverse_types::ceramic::StreamState;
+use dataverse_types::ceramic::{StreamId, StreamState};
 use int_enum::IntEnum;
 
 use crate::event::Event;

@@ -1,5 +1,4 @@
-use ceramic_core::StreamId;
-use dataverse_types::store::dapp::ModelStore;
+use dataverse_types::{ceramic::StreamId, store::dapp::ModelStore};
 
 use crate::policy::Policy;
 

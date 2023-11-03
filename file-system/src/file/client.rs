@@ -1,8 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Context, Result};
-use ceramic_core::StreamId;
-use dataverse_types::ceramic::StreamState;
+use dataverse_types::ceramic::{StreamId, StreamState};
 use dataverse_types::store::dapp::ModelStore;
 
 use crate::index_file::IndexFile;
@@ -11,14 +10,20 @@ use super::{loader::StreamFileLoader, StreamFile};
 
 pub struct Client<'a> {
     model_store: &'a ModelStore,
-    loader: Box<dyn StreamFileLoader + Send + Sync>,
+    loader: Arc<dyn StreamFileLoader + Send + Sync>,
 }
 
 impl Client<'_> {
-    pub fn new() -> Self {
-        Self {
-            model_store: ModelStore::get_instance(),
-            loader: Box::new(()),
+    pub fn new(loader: Option<Arc<dataverse_iroh_store::Client>>) -> Self {
+        match loader {
+            Some(iroh) => Self {
+                model_store: ModelStore::get_instance(),
+                loader: iroh,
+            },
+            None => Self {
+                model_store: ModelStore::get_instance(),
+                loader: Arc::new(()),
+            },
         }
     }
 }
