@@ -4,13 +4,13 @@ use anyhow::Context;
 use dataverse_ceramic::event;
 use dataverse_types::ceramic::{StreamId, StreamState};
 use futures::TryStreamExt;
-use iroh::baomap::flat::Store as BaoFileStore;
 pub use iroh::net::key::SecretKey;
 use iroh::{
     client::mem::{Doc, Iroh},
     node::Node,
     rpc_protocol::DocTicket,
 };
+use iroh_bytes::store::flat::Store as BaoFileStore;
 use iroh_bytes::util::runtime;
 use iroh_sync::{store::GetFilter, store::Store, AuthorId};
 use iroh_sync::{Author, NamespaceId, NamespacePublicKey};
@@ -119,7 +119,7 @@ impl Client {
     async fn lookup_model_doc(&self, model_id: &StreamId) -> anyhow::Result<Doc> {
         let id = self.get_namespace_id_by_model_id(model_id).await?;
         match id {
-            Some(id) => match self.iroh.docs.get(id).await? {
+            Some(id) => match self.iroh.docs.open(id).await? {
                 Some(doc) => Ok(doc),
                 None => Ok(self.new_doc_model(model_id).await?),
             },

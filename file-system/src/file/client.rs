@@ -71,7 +71,7 @@ impl Client<'_> {
 pub trait StreamFileTrait {
     async fn load_file(&self, dapp_id: &uuid::Uuid, stream_id: &StreamId) -> Result<StreamFile>;
 
-    async fn load_stream(&self, dapp_id: &uuid::Uuid, stream_id: &StreamId) -> Result<StreamFile>;
+    async fn load_stream(&self, dapp_id: &uuid::Uuid, stream_id: &StreamId) -> Result<StreamState>;
 
     async fn load_files(
         &self,
@@ -162,16 +162,11 @@ impl StreamFileTrait for Client<'_> {
         &self,
         app_id: &uuid::Uuid,
         stream_id: &StreamId,
-    ) -> anyhow::Result<StreamFile> {
-        let files = self
-            .load_files_by_model_id(&None, app_id, stream_id)
-            .await?;
-        files
-            .iter()
-            .filter(|x| x.content_id == *stream_id.to_string())
-            .next()
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("not found"))
+    ) -> anyhow::Result<StreamState> {
+        let model_index_file = self.get_index_file_model(&app_id).await?;
+        self.loader
+            .load_stream(&model_index_file.indexed_on, stream_id)
+            .await
     }
 
     async fn load_files(

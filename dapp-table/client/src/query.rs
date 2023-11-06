@@ -108,6 +108,7 @@ mod tests {
     #[tokio::test]
     async fn test_lookup_dapps() {
         let dapps = lookup_dapps().await;
+        log::debug!("{:?}", dapps);
         assert!(dapps.is_ok());
         let dapps = dapps.unwrap();
         assert!(dapps.len() > 0);

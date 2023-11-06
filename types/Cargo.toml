@@ -9,14 +9,14 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 ceramic-core = { workspace = true }
 dapp-table-client = { workspace = true }
+hex = { workspace = true }
 int-enum = "0.5.0"
 multibase = "0.9.1"
+once_cell = "1.18.0"
 serde = { workspace = true }
 serde_json = { workspace = true }
 ssi = { version = "0.7", features = ["ed25519"] }
+tokio = { workspace = true }
 unsigned-varint = "0.7.2"
-hex = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
-tokio = { workspace = true }
-once_cell = "1.18.0"
