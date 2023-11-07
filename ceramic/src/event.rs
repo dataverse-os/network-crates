@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ceramic_core::{Base64String, Base64UrlString, StreamId};
 use dag_jose::DagJoseCodec;
-use dataverse_types::ceramic::{StateLog, StreamState};
+use dataverse_types::ceramic::{AnchorProof, AnchorStatus, StateLog, StreamState};
 use json_patch::Patch;
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid, json::DagJsonCodec, Ipld};
@@ -26,9 +26,9 @@ impl Event {
         }
     }
 
-    pub fn apply_to(&self, stream_state: &mut StreamState) -> anyhow::Result<()> {
-        self.value.apply_to(stream_state)?;
-        stream_state.log.push(StateLog {
+    pub fn apply_to(&self, state: &mut StreamState) -> anyhow::Result<()> {
+        self.value.apply_to(state)?;
+        state.log.push(StateLog {
             cid: self.cid.to_string(),
             r#type: match &self.value {
                 EventValue::Signed(signed) => match signed.is_gensis() {
@@ -38,6 +38,15 @@ impl Event {
                 EventValue::Anchor(_) => 2,
             },
         });
+        if let EventValue::Anchor(anchor) = &self.value {
+            state.anchor_status = AnchorStatus::Anchored;
+            state.anchor_proof = Some(AnchorProof {
+                root: anchor.id.to_string(),
+                tx_hash: anchor.proof.to_string(),
+                tx_type: Some("f(bytes32)".to_string()),
+                chain_id: "eip155:1".to_string(),
+            });
+        }
         Ok(())
     }
 

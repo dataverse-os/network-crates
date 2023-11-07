@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use ceramic_core::Cid;
 use ceramic_core::StreamId;
+use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -34,7 +35,32 @@ pub struct StreamState {
     /// Signature for stream
     pub signature: i32,
     /// Anchor status for stream
-    pub anchor_status: String,
+    pub anchor_status: AnchorStatus,
+    /// Anchor proof for stream
+    pub anchor_proof: Option<AnchorProof>,
+    /// Type of document
+    pub doc_type: String,
+}
+
+#[repr(u64)]
+#[derive(Copy, Clone, Debug, Eq, IntEnum, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AnchorStatus {
+    NotRequested = 0,
+    Pending = 1,
+    Processing = 2,
+    Anchored = 3,
+    Failed = 4,
+    Replaced = 5,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnchorProof {
+    pub root: String,
+    pub tx_hash: String,
+    pub tx_type: Option<String>,
+    pub chain_id: String,
 }
 
 impl StreamState {
@@ -92,9 +118,11 @@ impl Default for StreamState {
             r#type: 0,
             content: Default::default(),
             metadata: Default::default(),
-            signature: Default::default(),
-            anchor_status: Default::default(),
+            signature: 2,
+            anchor_status: AnchorStatus::Pending,
             log: vec![],
+            doc_type: "MID".to_string(),
+            anchor_proof: None,
         }
     }
 }
@@ -106,6 +134,24 @@ mod tests {
     use crate::ceramic::stream::StreamState;
 
     use super::*;
+
+    #[test]
+    fn test_serialize_anchor_status() {
+        let status = AnchorStatus::Anchored;
+        let status = serde_json::to_value(&status);
+        assert!(status.is_ok());
+        let status = status.unwrap();
+        assert_eq!(status, json!("ANCHORED"));
+    }
+
+    #[test]
+    fn test_deserialize_anchor_status() {
+        let status = json!("ANCHORED");
+        let status = serde_json::from_value::<AnchorStatus>(status);
+        assert!(status.is_ok());
+        let status = status.unwrap();
+        assert_eq!(status, AnchorStatus::Anchored);
+    }
 
     #[test]
     fn test_decode_from_json() {

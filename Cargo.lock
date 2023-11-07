@@ -1477,6 +1477,7 @@ dependencies = [
  "iroh-net",
  "iroh-sync",
  "json-patch",
+ "log",
  "num_cpus",
  "once_cell",
  "quic-rpc",
