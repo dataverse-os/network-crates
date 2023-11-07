@@ -172,6 +172,12 @@ impl Client {
         self.save_stream(stream).await
     }
 
+    pub async fn save_data_commit(&self, data: Data) -> anyhow::Result<StreamState> {
+        let mut stream = self.load_stream(&data.stream_id).await?;
+        stream.commits.push(data.commit.try_into()?);
+        self.save_stream(stream).await
+    }
+
     pub async fn save_stream(&self, stream: Stream) -> anyhow::Result<StreamState> {
         let stream_id = stream.stream_id()?;
 
@@ -201,12 +207,6 @@ impl Client {
             return Ok(content);
         }
         anyhow::bail!("not found")
-    }
-
-    pub async fn save_data_commit(&self, data: Data) -> anyhow::Result<StreamState> {
-        let mut stream = self.load_stream(&data.stream_id).await?;
-        stream.commits.push(data.commit.jws.try_into()?);
-        self.save_stream(stream).await
     }
 }
 
@@ -333,9 +333,15 @@ mod tests {
             "kjzl6kcym7w8y7aq5fcqraw3vk69f2syk6kpcmcs6xojujxf9batubj5ibki495".parse()?;
         let stream = client.load_stream(&stream_id).await;
         assert!(stream.is_ok());
+        let stream = stream.unwrap();
+        assert_eq!(stream.commits.len(), 2);
 
-        let state: anyhow::Result<StreamState> = stream.unwrap().try_into();
+        let state: anyhow::Result<StreamState> = stream.try_into();
         assert!(state.is_ok());
+        assert_eq!(
+            state.unwrap().content["updatedAt"],
+            "2023-10-07T08:23:32.228Z"
+        );
 
         let model_id = "kjzl6hvfrbw6c86gt9j415yw2x8stmkotcrzpeutrbkp42i4z90gp5ibptz4sso".parse()?;
 
