@@ -39,7 +39,7 @@ pub struct StreamState {
     /// Anchor proof for stream
     pub anchor_proof: Option<AnchorProof>,
     /// Type of document
-    pub doc_type: String,
+    pub doctype: String,
 }
 
 #[repr(u64)]
@@ -121,7 +121,7 @@ impl Default for StreamState {
             signature: 2,
             anchor_status: AnchorStatus::Pending,
             log: vec![],
-            doc_type: "MID".to_string(),
+            doctype: "MID".to_string(),
             anchor_proof: None,
         }
     }
