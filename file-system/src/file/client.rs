@@ -232,15 +232,19 @@ impl StreamFileTrait for Client<'_> {
         app_id: &uuid::Uuid,
         model_id: &StreamId,
     ) -> Result<Vec<StreamFile>> {
-        let index_file = self.get_index_file_model(&app_id).await?;
+        let model_index_file = self.get_index_file_model(&app_id).await?;
 
         let content_query_edges = self
             .loader
-            .load_streams(&account, &index_file.indexed_on, &model_id)
+            .load_streams(&account, &model_index_file.indexed_on, &model_id)
             .await?;
         let file_query_edges = self
             .loader
-            .load_streams(&account, &index_file.indexed_on, &index_file.model_id)
+            .load_streams(
+                &account,
+                &model_index_file.indexed_on,
+                &model_index_file.model_id,
+            )
             .await?;
 
         let mut file_map: HashMap<String, StreamFile> = HashMap::new();
@@ -249,7 +253,6 @@ impl StreamFileTrait for Client<'_> {
             file_map.insert(
                 content_id.to_string(),
                 StreamFile {
-                    file_model_id: Some(index_file.model_id.clone()),
                     content_id: content_id.to_string(),
                     model_id: Some(model_id.clone()),
                     content: Some(node.content.clone()),
@@ -263,6 +266,7 @@ impl StreamFileTrait for Client<'_> {
             let index_file = serde_json::from_value::<IndexFile>(node.content.clone());
             if let Ok(index_file) = index_file {
                 if let Some(stream_file) = file_map.get_mut(&index_file.content_id) {
+                    stream_file.file_model_id = Some(model_index_file.model_id.clone());
                     stream_file.file_id = Some(node.stream_id()?);
                     stream_file.file = serde_json::from_value(node.content.clone())?;
                 }

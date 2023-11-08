@@ -4,7 +4,7 @@ mod loader;
 pub use client::*;
 pub use loader::*;
 
-use ceramic_core::{Cid, StreamId, StreamIdType};
+use ceramic_core::StreamId;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
 
@@ -31,14 +31,8 @@ pub struct StreamFile {
 impl Default for StreamFile {
     fn default() -> Self {
         Self {
-            file_id: Some(StreamId {
-                r#type: StreamIdType::Tile,
-                cid: Cid::default(),
-            }),
-            file_model_id: Some(StreamId {
-                r#type: StreamIdType::Tile,
-                cid: Cid::default(),
-            }),
+            file_id: None,
+            file_model_id: None,
             file: Default::default(),
             content_id: Default::default(),
             model_id: Default::default(),
