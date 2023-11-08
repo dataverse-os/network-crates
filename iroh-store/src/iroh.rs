@@ -187,14 +187,18 @@ impl Client {
 
     pub async fn save_genesis_commit(
         &self,
-        dapp_id: uuid::Uuid,
+        dapp_id: &uuid::Uuid,
         genesis: Genesis,
     ) -> anyhow::Result<StreamState> {
-        let stream = Stream::new(dapp_id, genesis)?;
+        let stream = Stream::new(dapp_id.clone(), genesis)?;
         self.save_stream(stream).await
     }
 
-    pub async fn save_data_commit(&self, data: Data) -> anyhow::Result<StreamState> {
+    pub async fn save_data_commit(
+        &self,
+        _dapp_id: &uuid::Uuid,
+        data: Data,
+    ) -> anyhow::Result<StreamState> {
         let mut stream = self.load_stream(&data.stream_id).await?;
         let commit = data.commit.try_into()?;
         stream.add_commit(commit)?;
@@ -358,14 +362,14 @@ mod tests {
         );
 
         let dapp_id = uuid::Uuid::new_v4();
-        let state = client.save_genesis_commit(dapp_id, genesis).await;
+        let state = client.save_genesis_commit(&dapp_id, genesis).await;
         assert!(state.is_ok());
         let state = state.unwrap();
         let update_at = state.content["updatedAt"].clone();
 
         let data: Data = crate::commit::example::data();
 
-        let result = client.save_data_commit(data).await;
+        let result = client.save_data_commit(&dapp_id, data).await;
         assert!(result.is_ok());
 
         let stream_id = state.stream_id()?;
