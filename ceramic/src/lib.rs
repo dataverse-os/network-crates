@@ -1,3 +1,4 @@
+pub mod cacao;
 pub mod did;
 pub mod event;
 pub mod http;

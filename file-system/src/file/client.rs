@@ -249,14 +249,12 @@ impl StreamFileTrait for Client<'_> {
             file_map.insert(
                 content_id.to_string(),
                 StreamFile {
-                    file_id: Some(content_id.clone()),
                     file_model_id: Some(index_file.model_id.clone()),
-                    file: None,
                     content_id: content_id.to_string(),
                     model_id: Some(model_id.clone()),
                     content: Some(node.content.clone()),
-                    verified_status: 0,
                     controller: node.controllers().first().context("no controller")?.clone(),
+                    ..Default::default()
                 },
             );
         }
@@ -265,6 +263,7 @@ impl StreamFileTrait for Client<'_> {
             let index_file = serde_json::from_value::<IndexFile>(node.content.clone());
             if let Ok(index_file) = index_file {
                 if let Some(stream_file) = file_map.get_mut(&index_file.content_id) {
+                    stream_file.file_id = Some(node.stream_id()?);
                     stream_file.file = serde_json::from_value(node.content.clone())?;
                 }
             }

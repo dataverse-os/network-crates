@@ -17,6 +17,26 @@ pub struct StateLog {
     pub cid: String,
     /// Type of commit
     pub r#type: u64,
+
+    pub timestamp: Option<i64>,
+
+    pub expiration_time: Option<i64>,
+}
+
+#[repr(u64)]
+#[derive(Copy, Clone, Debug, Eq, IntEnum, PartialEq)]
+pub enum LogType {
+    Genesis = 0,
+    Signed = 1,
+    Anchor = 2,
+}
+
+#[repr(u64)]
+#[derive(Copy, Clone, Debug, Eq, IntEnum, PartialEq)]
+pub enum SignatureStatus {
+    GENESIS = 0,
+    PARTIAL = 1,
+    SIGNED = 2,
 }
 
 /// Current state of stream

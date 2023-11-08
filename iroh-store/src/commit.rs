@@ -60,6 +60,21 @@ impl TryInto<event::Event> for Content {
     }
 }
 
+impl TryFrom<event::Event> for Content {
+    type Error = anyhow::Error;
+
+    fn try_from(value: event::Event) -> Result<Self, Self::Error> {
+        if let EventValue::Signed(signed) = value.value {
+            return Ok(Content {
+                jws: signed.jws,
+                linked_block: Base64String::from(signed.linked_block.unwrap()),
+                cacao_block: Base64String::from(signed.cacao_block.unwrap()),
+            });
+        }
+        return Err(anyhow::anyhow!("invalid event value"));
+    }
+}
+
 impl Content {
     pub fn payload(&self) -> anyhow::Result<event::Payload> {
         event::Payload::try_from(self.linked_block.to_vec()?)
@@ -67,6 +82,70 @@ impl Content {
 
     pub fn cid(&self) -> anyhow::Result<Cid> {
         Ok(Cid::from_str(&self.jws.cid()?.to_string())?)
+    }
+}
+
+#[cfg(test)]
+pub mod example {
+    use super::*;
+
+    pub fn genesis_value() -> serde_json::Value {
+        serde_json::json!({
+            "type": 3,
+            "genesis": {
+                "jws": {
+                    "payload": "AXESIPuSs5bLEXdRwMiyxChxEtiDJRB4V-fanRA-ASLNNQel",
+                    "signatures": [
+                        {
+                            "protected": "eyJhbGciOiJFZERTQSIsImNhcCI6ImlwZnM6Ly9iYWZ5cmVpZ3pkMm1jc216cXpicXd6eXFmNmNrMzc3Mmk3ZW5ia3RlcnBleGhvNjdhazR5enQ0aHh6eSIsImtpZCI6ImRpZDprZXk6ejZNa2o5TTZRZ3pQUDN6UGRIb0NIRW9qaVpTVGQ0a1M1M3oyeDlIaThMOWpnQk0xI3o2TWtqOU02UWd6UFAzelBkSG9DSEVvamlaU1RkNGtTNTN6Mng5SGk4TDlqZ0JNMSJ9",
+                            "signature": "oCIUyk9AWegAZYaKXEcWqrE2IkznDZreIeAjiZtr3G5xxu8W3owHN98UgmX-BUAY3PVpC_Co1J_ZI5EFuVI5DA"
+                        }
+                    ],
+                    "link": "bafyreih3skzznsyro5i4bsfsyquhcewyqmsra6cx47nj2eb6aerm2nihuu"
+                },
+                "linkedBlock": "omRkYXRhp2R0ZXh0ZWhlbGxvZmltYWdlc4F4UWh0dHBzOi8vYmFma3JlaWI3Nnd6Nndld3RrZm1wNXJobTNlcDZ0ZjR4aml4dnp6eWg2NG5ieWdlNXloam5vMjR5bDQuaXBmcy53M3MubGlua2Z2aWRlb3OAaWNyZWF0ZWRBdHgYMjAyMy0xMS0wOFQwNjo1NzowMS44OTBaaWVuY3J5cHRlZHgseyJ0ZXh0IjpmYWxzZSwiaW1hZ2VzIjpmYWxzZSwidmlkZW9zIjpmYWxzZX1pdXBkYXRlZEF0eBgyMDIzLTExLTA4VDA2OjU3OjAxLjg5MFpsbW9kZWxWZXJzaW9uZTAuMC4xZmhlYWRlcqRjc2VwZW1vZGVsZW1vZGVsWCjOAQIBhQESIIrLshWbNwLyIUI22BS3XLlJL69oManjcFUuERU0WpJbZnVuaXF1ZUy3MkZ0ghnHbgIly31rY29udHJvbGxlcnOBeDtkaWQ6cGtoOmVpcDE1NToxOjB4MzEyZUE4NTI3MjZFM0E5ZjYzM0EwMzc3YzBlYTg4MjA4NmQ2NjY2Ng",
+                "cacaoBlock": "o2FooWF0Z2VpcDQzNjFhcKljYXVkeDhkaWQ6a2V5Ono2TWtqOU02UWd6UFAzelBkSG9DSEVvamlaU1RkNGtTNTN6Mng5SGk4TDlqZ0JNMWNleHB4GDIwMjMtMTEtMTVUMDY6NTU6MjAuNjA0WmNpYXR4GDIwMjMtMTEtMDhUMDY6NTU6MjAuNjA0WmNpc3N4O2RpZDpwa2g6ZWlwMTU1OjE6MHgzMTJlQTg1MjcyNkUzQTlmNjMzQTAzNzdjMGVhODgyMDg2ZDY2NjY2ZW5vbmNlbm1ieWZPek5lOXNDVmNuZmRvbWFpbnggY2VrcGZua2xjaWZpb21nZW9nYm1rbm5tY2dia2RwaW1ndmVyc2lvbmExaXJlc291cmNlc4Z4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM4aDBvaWl2MmNjaWtiMnRoeHN1OThzeTB5ZGk2b3NoajZzanV6OWRnYTk0NDYzYW52ZnhRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2YzY3N2g2bzdxcTNuaXl3bHZpZjVhY3ZudnUybmxkYmgwYXVmb3dpaWI3ZXAwN3NtNmFjeFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjODg3amhqeW45a3oxNXg2anduYTNrdml1cDh4NGxzMmEwdjZ4YjEzcXZpaXBiOHk3bWd4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM4cDVjb2N0d3FmOGZvaGtlYnR3MGhpeGgzNHl6Y3dhb2h3bXFuZGUwbWhzN3B2azQ0ZXhRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2YzZxMjljbzgzbjhhdjhrcmxzdDM1d2JvanVoeHhzMm5mdXlraXJicTRubmRqanZkdTNxeFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjOWc0dWk3ejFqa3N2Yms3eTA5cTZjMXJ1eXFpaWowb3RtdnpyN295M3ZkMHlnNDNxendpc3RhdGVtZW50eDFHaXZlIHRoaXMgYXBwbGljYXRpb24gYWNjZXNzIHRvIHNvbWUgb2YgeW91ciBkYXRhYXOiYXN4hDB4NzM4NjEyMWMwZjk2MzFmOGRkZDQ5NDlmZWI2NDMwOTNlMDVhNzk1MGRhZDhmNWY0MjViZWQ1YjQ0OTAyOWY2NDdlMmI2MWIyYWI5NjA0YTBmNDVjYWUxZjhmNDM5Yjk5YzlkMWFlYzJlZGY5NDVjMzI5M2Y2NTZjZmQzNTE0ODkxY2F0ZmVpcDE5MQ"
+            },
+            "opts": {
+                "anchor": true,
+                "publish": true,
+                "sync": 3,
+                "syncTimeoutSeconds": 0
+            }
+        })
+    }
+
+    pub fn genesis() -> Genesis {
+        serde_json::from_value(genesis_value()).unwrap()
+    }
+
+    pub fn data_value() -> serde_json::Value {
+        serde_json::json!({
+            "streamId": "kjzl6kcym7w8y9pqrvjg79e54jk1jbintgfkmunbjil3dskk7meaavrqy5bugdf",
+            "commit": {
+                "jws": {
+                    "payload": "AXESIG0OZAeuI3pvuQjgFwqT2gnNdqDUcrI7pr4bU8eXhr2A",
+                    "signatures": [
+                        {
+                            "protected": "eyJhbGciOiJFZERTQSIsImNhcCI6ImlwZnM6Ly9iYWZ5cmVpZ3pkMm1jc216cXpicXd6eXFmNmNrMzc3Mmk3ZW5ia3RlcnBleGhvNjdhazR5enQ0aHh6eSIsImtpZCI6ImRpZDprZXk6ejZNa2o5TTZRZ3pQUDN6UGRIb0NIRW9qaVpTVGQ0a1M1M3oyeDlIaThMOWpnQk0xI3o2TWtqOU02UWd6UFAzelBkSG9DSEVvamlaU1RkNGtTNTN6Mng5SGk4TDlqZ0JNMSJ9",
+                            "signature": "rECTPFulYg1510_--9JKzlwpA2aGSfnsDV0dVG8YwY4fL-RCX3x3wknrQlBqtfBhcwlauwJLHyiXySb6KxRxAA"
+                        }
+                    ],
+                    "link": "bafyreidnbzsaplrdpjx3schac4fjhwqjzv3kbvdswi52npq3kpdzpbv5qa"
+                },
+                "linkedBlock": "o2JpZNgqWCYAAYUBEiDB4STEtGk5w8uur0j8bAPwd8WV/a9dqbcliNiFE35tY2RkYXRhhaNib3BncmVwbGFjZWRwYXRoai91cGRhdGVkQXRldmFsdWV4GDIwMjMtMTEtMDhUMDY6NTc6MDMuNjg5WqNib3BncmVwbGFjZWRwYXRoZS90ZXh0ZXZhbHVleCtHMXJXSlg5aGV6VXNKd1NHNGRGZThiWGdqdmdqRDNVZUxWbzV5ODJiNGdzo2JvcGdyZXBsYWNlZHBhdGhpL2ltYWdlcy8wZXZhbHVleJYxdXp5YVFmT2FEZUtyTl9JaGZXTFk5TExwbXVZQ1RacUtTZHZBSWs3Ymc2Q3MzcF9kQ1VBRXV4RE9SbWRjcFBxRzJIX0xtaVBBYzZNcGVOMXdLQjgzLTROTHNtcGVpRFk3elR3a0xsR0h3QlNoTHg2aHVPVFUwWHBwV2YteTFXNHdiNDhwTGpIbDFqaU91WUt4LTNaT2ejYm9wZ3JlcGxhY2VkcGF0aGovZW5jcnlwdGVkZXZhbHVleCp7InRleHQiOnRydWUsImltYWdlcyI6dHJ1ZSwidmlkZW9zIjpmYWxzZX2jYm9wZ3JlcGxhY2VkcGF0aGovY3JlYXRlZEF0ZXZhbHVleBgyMDIzLTExLTA4VDA2OjU3OjAzLjY4OVpkcHJldtgqWCYAAYUBEiDB4STEtGk5w8uur0j8bAPwd8WV/a9dqbcliNiFE35tYw",
+                "cacaoBlock": "o2FooWF0Z2VpcDQzNjFhcKljYXVkeDhkaWQ6a2V5Ono2TWtqOU02UWd6UFAzelBkSG9DSEVvamlaU1RkNGtTNTN6Mng5SGk4TDlqZ0JNMWNleHB4GDIwMjMtMTEtMTVUMDY6NTU6MjAuNjA0WmNpYXR4GDIwMjMtMTEtMDhUMDY6NTU6MjAuNjA0WmNpc3N4O2RpZDpwa2g6ZWlwMTU1OjE6MHgzMTJlQTg1MjcyNkUzQTlmNjMzQTAzNzdjMGVhODgyMDg2ZDY2NjY2ZW5vbmNlbm1ieWZPek5lOXNDVmNuZmRvbWFpbnggY2VrcGZua2xjaWZpb21nZW9nYm1rbm5tY2dia2RwaW1ndmVyc2lvbmExaXJlc291cmNlc4Z4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM4aDBvaWl2MmNjaWtiMnRoeHN1OThzeTB5ZGk2b3NoajZzanV6OWRnYTk0NDYzYW52ZnhRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2YzY3N2g2bzdxcTNuaXl3bHZpZjVhY3ZudnUybmxkYmgwYXVmb3dpaWI3ZXAwN3NtNmFjeFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjODg3amhqeW45a3oxNXg2anduYTNrdml1cDh4NGxzMmEwdjZ4YjEzcXZpaXBiOHk3bWd4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM4cDVjb2N0d3FmOGZvaGtlYnR3MGhpeGgzNHl6Y3dhb2h3bXFuZGUwbWhzN3B2azQ0ZXhRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2YzZxMjljbzgzbjhhdjhrcmxzdDM1d2JvanVoeHhzMm5mdXlraXJicTRubmRqanZkdTNxeFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjOWc0dWk3ejFqa3N2Yms3eTA5cTZjMXJ1eXFpaWowb3RtdnpyN295M3ZkMHlnNDNxendpc3RhdGVtZW50eDFHaXZlIHRoaXMgYXBwbGljYXRpb24gYWNjZXNzIHRvIHNvbWUgb2YgeW91ciBkYXRhYXOiYXN4hDB4NzM4NjEyMWMwZjk2MzFmOGRkZDQ5NDlmZWI2NDMwOTNlMDVhNzk1MGRhZDhmNWY0MjViZWQ1YjQ0OTAyOWY2NDdlMmI2MWIyYWI5NjA0YTBmNDVjYWUxZjhmNDM5Yjk5YzlkMWFlYzJlZGY5NDVjMzI5M2Y2NTZjZmQzNTE0ODkxY2F0ZmVpcDE5MQ"
+            },
+            "opts": {
+                "anchor": true,
+                "publish": true,
+                "sync": 3
+            }
+        })
+    }
+
+    pub fn data() -> Data {
+        serde_json::from_value(data_value()).unwrap()
     }
 }
 

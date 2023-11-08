@@ -1414,6 +1414,7 @@ dependencies = [
  "ceramic-core",
  "ceramic-event",
  "ceramic-http-client",
+ "chrono",
  "dag-jose",
  "dataverse-types",
  "hex",
@@ -1453,9 +1454,11 @@ dependencies = [
  "json-patch",
  "log",
  "multibase 0.9.1",
+ "reqwest",
  "serde",
  "serde_json",
  "tokio",
+ "url",
  "uuid",
 ]
 
@@ -1487,6 +1490,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

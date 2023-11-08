@@ -29,3 +29,4 @@ serde = { version = "1.0.183", features = ["derive"] }
 serde_json = { version = "1.0.106", features = ["raw_value"] }
 tempfile = "3.8.0"
 tokio = { workspace = true }
+uuid = { workspace = true }

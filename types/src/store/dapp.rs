@@ -30,6 +30,11 @@ impl ModelStore {
         &MODEL_STORE
     }
 
+    pub async fn get_dapp_ceramic(&self, dapp_id: &uuid::Uuid) -> anyhow::Result<String> {
+        let dapp = dapp_table_client::lookup_dapp_by_dapp_id(&dapp_id.to_string()).await?;
+        Ok(dapp.ceramic)
+    }
+
     pub async fn get_models(&self, app_id: &uuid::Uuid) -> anyhow::Result<Vec<Model>> {
         let dapp = dapp_table_client::lookup_dapp_by_dapp_id(&app_id.to_string()).await?;
         let mut models = vec![];

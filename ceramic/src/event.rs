@@ -1,11 +1,13 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ceramic_core::{Base64String, Base64UrlString, StreamId};
 use dag_jose::DagJoseCodec;
-use dataverse_types::ceramic::{AnchorProof, AnchorStatus, StateLog, StreamState};
+use dataverse_types::ceramic::{AnchorProof, AnchorStatus, LogType, StateLog, StreamState};
 use json_patch::Patch;
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid, json::DagJsonCodec, Ipld};
 use serde::{Deserialize, Serialize};
+
+use crate::cacao::CACAO;
 
 use super::jws::ToCid;
 
@@ -16,28 +18,42 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn prev(&self) -> Option<Cid> {
+    pub fn prev(&self) -> anyhow::Result<Cid> {
         match &self.value {
-            EventValue::Signed(e) => match &e.payload() {
-                Ok(payload) => payload.prev,
-                Err(_) => None,
+            EventValue::Signed(e) => e.payload()?.prev.context("prev not found in payload"),
+            EventValue::Anchor(e) => Ok(e.prev),
+        }
+    }
+
+    pub fn log_type(&self) -> LogType {
+        match &self.value {
+            EventValue::Signed(signed) => match signed.is_gensis() {
+                true => LogType::Genesis,
+                false => LogType::Signed,
             },
-            EventValue::Anchor(e) => Some(e.prev),
+            EventValue::Anchor(_) => LogType::Anchor,
         }
     }
 
     pub fn apply_to(&self, state: &mut StreamState) -> anyhow::Result<()> {
         self.value.apply_to(state)?;
-        state.log.push(StateLog {
+        let ts = match &self.value {
+            EventValue::Signed(signed) => {
+                if let Some(cacao) = signed.cacao()? {
+                    (None, cacao.p.expiration_time()?)
+                } else {
+                    (None, None)
+                }
+            }
+            EventValue::Anchor(_) => (None, None),
+        };
+        let state_log = StateLog {
             cid: self.cid.to_string(),
-            r#type: match &self.value {
-                EventValue::Signed(signed) => match signed.is_gensis() {
-                    true => 0,
-                    false => 1,
-                },
-                EventValue::Anchor(_) => 2,
-            },
-        });
+            r#type: self.log_type() as u64,
+            timestamp: ts.0,
+            expiration_time: ts.1.map(|t| t.timestamp()),
+        };
+        state.log.push(state_log);
         if let EventValue::Anchor(anchor) = &self.value {
             state.anchor_status = AnchorStatus::Anchored;
             state.anchor_proof = Some(AnchorProof {
@@ -108,18 +124,22 @@ impl EventValue {
     pub fn apply_to(&self, stream_state: &mut StreamState) -> anyhow::Result<()> {
         if let Self::Signed(e) = self {
             if let Ok(payload) = &e.payload() {
-                // gensis commit
-                if payload.id.is_none() {
-                    if let Some(data) = &payload.data {
-                        stream_state.content = data.clone();
+                match payload.id.is_none() {
+                    // gensis commit
+                    true => {
+                        if let Some(data) = &payload.data {
+                            stream_state.content = data.clone();
+                        }
+                        if let Some(header) = &payload.header {
+                            stream_state.metadata = header.to_metadata();
+                        }
                     }
-                    if let Some(header) = &payload.header {
-                        stream_state.metadata = header.to_metadata();
-                    }
-                } else {
-                    if let Some(data) = &payload.data {
-                        let patch: json_patch::Patch = serde_json::from_value(data.clone())?;
-                        json_patch::patch(&mut stream_state.content, &patch)?;
+                    // data commit
+                    false => {
+                        if let Some(data) = &payload.data {
+                            let patch: json_patch::Patch = serde_json::from_value(data.clone())?;
+                            json_patch::patch(&mut stream_state.content, &patch)?;
+                        }
                     }
                 }
             };
@@ -151,6 +171,15 @@ impl SignedValue {
         } else {
             anyhow::bail!("linked_block is none")
         }
+    }
+
+    pub fn cacao(&self) -> anyhow::Result<Option<CACAO>> {
+        if let Some(cacao_block) = self.cacao_block.clone() {
+            let node: Ipld = DagCborCodec.decode(&cacao_block)?;
+            let cacao: CACAO = libipld::serde::from_ipld(node)?;
+            return Ok(Some(cacao));
+        }
+        Ok(None)
     }
 
     pub fn data(&self) -> anyhow::Result<serde_json::Value> {
@@ -606,6 +635,15 @@ mod tests {
         assert!(payload.data.is_some());
         let data = payload.data;
         assert!(data.is_some());
+    }
+
+    #[test]
+    fn test_decode_cacao() {
+        let cacao = Base64String::from("o2FooWF0Z2VpcDQzNjFhcKljYXVkeDhkaWQ6a2V5Ono2TWt0RFZEVWhFYXVMYkVFWk1TQXRSMTc3ZER5Y2RvemN4UmZ3UHFUMmpRVkpVN2NleHB4GDIwMjMtMTAtMTRUMDc6Mjk6MjMuMTAyWmNpYXR4GDIwMjMtMTAtMDdUMDc6Mjk6MjMuMTAyWmNpc3N4O2RpZDpwa2g6ZWlwMTU1OjE6MHg1OTE1ZTI5MzgyM0ZDYTg0MGM5M0VEMkUxRTVCNGRmMzJkNjk5OTk5ZW5vbmNlbkRkbjdsU2MzdlFUd3F2ZmRvbWFpbnggY2VrcGZua2xjaWZpb21nZW9nYm1rbm5tY2dia2RwaW1ndmVyc2lvbmExaXJlc291cmNlc4p4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM4c29nY2M0MzhmZ2dzdW55YnVxNnE5ZWN4b2FvemN4ZThxbGprOHd1M3VxdTM5NHV4N3hRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2Y2F0ZWszNmgzcGVwMDlrOWd5bWZubGE5azZvamxncm13am9ndmpxZzhxM3pweWJsMXl1eFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjN3hsdGh6eDlkaXk2azNyM3MweGFmOGg3NG5neGhuY2dqd3llcGw1OHBrYTE1eDl5aGN4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM4NjFjenZkc2xlZDN5bHNhOTk3N2k3cmxvd3ljOWw3anBnNmUxaGp3aDlmZWZsNmJzdXhRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2Y2I0bXNkODhpOG1sanp5cDNhencwOXgyNnYza2pvamVpdGJleDE4MWVmaTk0ZzU4ZWxmeFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjN2d1ODhnNjZ6MjhuODFsY3BiZzZodTJ0OHB1MnB1aTBzZm5wdnNyaHFuM2t4aDl4YWl4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmNhd3JsN2Y3NjdiNmN6NDhkbjBlZnI5d2Z0eDl0OWplbHc5dGIxb3R4ejc1MmpoODZrbnhRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2Yzg2Z3Q5ajQxNXl3Mng4c3Rta290Y3J6cGV1dHJia3A0Mmk0ejkwZ3A1aWJwdHo0c3NveFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjNnZiNjR3aTg4dWI0N2dibWNoODJ3Y3BibWU1MWh5bTRzOXFicDJ1a2FjMHl0aHpiajl4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmNhZ3Q2OTRpaW0yd3VlY3U3ZXVtZWRzN3FkMHA2dXptOGRucXNxNjlsbDdrYWNtMDVndWlzdGF0ZW1lbnR4MUdpdmUgdGhpcyBhcHBsaWNhdGlvbiBhY2Nlc3MgdG8gc29tZSBvZiB5b3VyIGRhdGFhc6Jhc3iEMHhmZDI0ZmVkNTA0MmFlMjdjYmY1NmUxN2FmNmJmZjdhNDQwZTZkMTY1NGZiNzhmZWQ4ZDNiYjdiN2RjOTRhMmFjMmY1MmU3M2EwMDdlZDhlMDExNzA2MGYyNzZjNTk2MTNhOGQ2OWI4NjgyNTJlYjZiMWE0MWE3ZGFkZWFlMzY3MzFiYXRmZWlwMTkx".to_string());
+
+        let b = &cacao.to_vec().unwrap();
+        let node: Ipld = DagCborCodec.decode(b).unwrap();
+        println!("{}", serde_json::to_string(&node).unwrap());
     }
 
     // #[test]

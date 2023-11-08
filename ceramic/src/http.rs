@@ -155,6 +155,7 @@ mod tests {
             StreamId::from_str("kjzl6kcym7w8y5pj1xs5iotnbplg7x4hgoohzusuvk8s7oih3h2fuplcvwvu2wx")
                 .unwrap();
         let stream = client.load_stream(&stream_id).await;
+        println!("{:?}", stream);
         assert!(stream.is_ok());
 
         let stream_from_ceramic = client.ceramic.get(&stream_id).await;
