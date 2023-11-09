@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use ceramic_core::Cid;
+use ceramic_core::MultiBase32String;
 use ceramic_core::StreamId;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
@@ -79,8 +80,8 @@ pub enum AnchorStatus {
 #[serde(rename_all = "camelCase")]
 pub struct AnchorProof {
     pub root: String,
-    pub tx_hash: String,
-    pub tx_type: Option<String>,
+    pub tx_hash: MultiBase32String,
+    pub tx_type: Option<MultiBase32String>,
     pub chain_id: String,
 }
 

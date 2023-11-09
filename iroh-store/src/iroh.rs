@@ -190,14 +190,18 @@ impl Client {
         dapp_id: &uuid::Uuid,
         genesis: Genesis,
     ) -> anyhow::Result<StreamState> {
-        let stream = self.load_stream(&genesis.stream_id()?).await?;
+        let stream_id = genesis.stream_id()?;
         let commit: event::Event = genesis.genesis.try_into()?;
         // check if commit already exists
-        if stream.commits.iter().any(|ele| ele.cid == commit.cid) {
-            return Ok(stream.try_into()?);
+        if let Ok(stream) = self.load_stream(&stream_id).await {
+            if stream.commits.iter().any(|ele| ele.cid == commit.cid) {
+                return Ok(stream.try_into()?);
+            }
         }
-        let stream = Stream::new(dapp_id.clone(), genesis.r#type, commit)?;
-        self.save_stream(stream).await
+        let stream = Stream::new(dapp_id.clone(), genesis.r#type, &commit)?;
+        let state = self.save_stream(stream).await?;
+        commit.verify_signature(&state)?;
+        Ok(state)
     }
 
     pub async fn save_data_commit(
@@ -205,14 +209,20 @@ impl Client {
         _dapp_id: &uuid::Uuid,
         data: Data,
     ) -> anyhow::Result<StreamState> {
-        let mut stream = self.load_stream(&data.stream_id).await?;
+        let mut stream = self
+            .load_stream(&data.stream_id)
+            .await
+            .context("stream not exist")?;
         let commit: event::Event = data.commit.try_into()?;
         // check if commit already exists
         if stream.commits.iter().any(|ele| ele.cid == commit.cid) {
             return Ok(stream.try_into()?);
         }
-        stream.add_commit(commit)?;
-        self.save_stream(stream).await
+        stream.add_commit(&commit)?;
+
+        let state = self.save_stream(stream).await?;
+        commit.verify_signature(&state)?;
+        Ok(state)
     }
 
     pub async fn save_stream(&self, stream: Stream) -> anyhow::Result<StreamState> {
@@ -257,27 +267,17 @@ pub struct Stream {
 }
 
 impl Stream {
-    pub fn new(dapp_id: uuid::Uuid, r#type: u64, commit: event::Event) -> anyhow::Result<Self> {
+    pub fn new(dapp_id: uuid::Uuid, r#type: u64, commit: &event::Event) -> anyhow::Result<Self> {
         if let event::EventValue::Signed(signed) = &commit.value {
             let expiration_time = match signed.cacao()? {
-                Some(cacao) => {
-                    let expiration_time = cacao.p.expiration_time()?;
-                    if let Some(exp) = expiration_time {
-                        if exp < Utc::now() {
-                            anyhow::bail!("genesis commit expired");
-                        }
-                    }
-                    expiration_time
-                }
+                Some(cacao) => cacao.p.expiration_time()?,
                 None => None,
             };
-
-            // TODO: check stream model in cacao resource models
             return Ok(Stream {
                 r#type,
                 dapp_id,
                 expiration_time,
-                commits: vec![commit],
+                commits: vec![commit.clone()],
                 published: 0,
             });
         }
@@ -296,7 +296,7 @@ impl Stream {
         })
     }
 
-    pub fn add_commit(&mut self, commit: event::Event) -> anyhow::Result<()> {
+    pub fn add_commit(&mut self, commit: &event::Event) -> anyhow::Result<()> {
         let prev = commit.prev()?.context("prev commit not found")?;
         if prev != self.commits.last().context("commits is empty")?.cid {
             anyhow::bail!("prev commit not match");
@@ -317,7 +317,7 @@ impl Stream {
                 }
             };
         }
-        self.commits.push(commit);
+        self.commits.push(commit.clone());
         Ok(())
     }
 }
@@ -358,7 +358,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_load_stream() -> anyhow::Result<()> {
+    async fn test_operate_stream() -> anyhow::Result<()> {
         let client = init_client().await;
         assert!(client.is_ok());
         let client = client.unwrap();

@@ -1,7 +1,8 @@
 use anyhow::Result;
 use ceramic_core::{Base64String, Base64UrlString, StreamId};
+use chrono::Utc;
 use dag_jose::DagJoseCodec;
-use dataverse_types::ceramic::{AnchorProof, AnchorStatus, LogType, StateLog, StreamState};
+use dataverse_types::ceramic::{LogType, StateLog, StreamState};
 use json_patch::Patch;
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid, json::DagJsonCodec, Ipld};
@@ -11,7 +12,7 @@ use crate::cacao::CACAO;
 
 use super::jws::ToCid;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     pub cid: Cid,
     pub value: EventValue,
@@ -23,6 +24,24 @@ impl Event {
             EventValue::Signed(e) => Ok(e.payload()?.prev),
             EventValue::Anchor(e) => Ok(Some(e.prev)),
         }
+    }
+
+    pub fn verify_signature(&self, stream: &StreamState) -> anyhow::Result<()> {
+        if let EventValue::Signed(signed) = &self.value {
+            if let Some(cacao) = signed.cacao()? {
+                let expiration_time = cacao.p.expiration_time()?;
+                if let Some(exp) = expiration_time {
+                    if exp < Utc::now() {
+                        anyhow::bail!("genesis commit expired");
+                    }
+                }
+                let resource_models = cacao.p.resource_models()?;
+                if !resource_models.contains(&stream.model()?) {
+                    anyhow::bail!("invalid resource model");
+                }
+            };
+        };
+        Ok(())
     }
 
     pub fn log_type(&self) -> LogType {
@@ -54,15 +73,6 @@ impl Event {
             expiration_time: ts.1.map(|t| t.timestamp()),
         };
         state.log.push(state_log);
-        if let EventValue::Anchor(anchor) = &self.value {
-            state.anchor_status = AnchorStatus::Anchored;
-            state.anchor_proof = Some(AnchorProof {
-                root: anchor.id.to_string(),
-                tx_hash: anchor.proof.to_string(),
-                tx_type: Some("f(bytes32)".to_string()),
-                chain_id: "eip155:1".to_string(),
-            });
-        }
         Ok(())
     }
 
@@ -114,7 +124,7 @@ impl TryFrom<ceramic_core::Jws> for Event {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EventValue {
     Signed(SignedValue),
     Anchor(AnchorValue),
@@ -163,6 +173,28 @@ pub struct SignedValue {
     pub jws: ceramic_core::Jws,
     pub linked_block: Option<Vec<u8>>,
     pub cacao_block: Option<Vec<u8>>,
+}
+
+impl Clone for SignedValue {
+    fn clone(&self) -> Self {
+        Self {
+            jws: ceramic_core::Jws {
+                link: self.jws.link.clone(),
+                payload: self.jws.payload.clone(),
+                signatures: self
+                    .jws
+                    .signatures
+                    .iter()
+                    .map(|sig| ceramic_core::JwsSignature {
+                        protected: sig.protected.clone(),
+                        signature: sig.signature.clone(),
+                    })
+                    .collect::<Vec<_>>(),
+            },
+            linked_block: self.linked_block.clone(),
+            cacao_block: self.cacao_block.clone(),
+        }
+    }
 }
 
 impl SignedValue {
