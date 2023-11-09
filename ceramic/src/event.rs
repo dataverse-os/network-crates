@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use ceramic_core::{Base64String, Base64UrlString, StreamId};
 use dag_jose::DagJoseCodec;
 use dataverse_types::ceramic::{AnchorProof, AnchorStatus, LogType, StateLog, StreamState};
@@ -18,10 +18,10 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn prev(&self) -> anyhow::Result<Cid> {
+    pub fn prev(&self) -> anyhow::Result<Option<Cid>> {
         match &self.value {
-            EventValue::Signed(e) => e.payload()?.prev.context("prev not found in payload"),
-            EventValue::Anchor(e) => Ok(e.prev),
+            EventValue::Signed(e) => Ok(e.payload()?.prev),
+            EventValue::Anchor(e) => Ok(Some(e.prev)),
         }
     }
 
@@ -149,7 +149,9 @@ impl EventValue {
 
     pub fn decode(codec: u64, data: Vec<u8>) -> Result<Self> {
         match codec {
-            0x71 => Ok(EventValue::Anchor(data.decode()?)),
+            0x71 => Ok(EventValue::Anchor(
+                libipld::serde::from_ipld::<AnchorValue>(DagCborCodec.decode(&data)?)?,
+            )),
             0x85 => Ok(EventValue::Signed(data.decode()?)),
             _ => anyhow::bail!("unsupported codec {}", codec),
         }
@@ -210,19 +212,6 @@ pub struct AnchorValue {
     pub prev: Cid,
     pub proof: Cid,
     pub path: String,
-}
-
-impl TryFrom<&Ipld> for AnchorValue {
-    type Error = anyhow::Error;
-
-    fn try_from(node: &Ipld) -> Result<Self, Self::Error> {
-        Ok(AnchorValue {
-            id: node.get("id")?.as_some().unwrap(),
-            prev: node.get("prev")?.as_some().unwrap(),
-            proof: node.get("proof")?.as_some().unwrap(),
-            path: node.get("path")?.as_some().unwrap(),
-        })
-    }
 }
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
@@ -348,13 +337,6 @@ pub trait IpldDecodeFrom<T> {
     fn decode(&self) -> Result<T>;
 }
 
-impl IpldDecodeFrom<AnchorValue> for Vec<u8> {
-    fn decode(&self) -> Result<AnchorValue> {
-        let node: Ipld = DagCborCodec.decode(&self)?;
-        Ok(TryFrom::try_from(&node)?)
-    }
-}
-
 impl IpldDecodeFrom<SignedValue> for Vec<u8> {
     fn decode(&self) -> Result<SignedValue> {
         let node: Ipld = DagJoseCodec.decode(&self)?;
@@ -437,8 +419,14 @@ mod tests {
 
     #[test]
     fn test_decode_payload_base64() {
-        let data = Base64String::from("o2JpZNgqWCYAAYUBEiAhJu3/f3vsJjrJbLXQoWReUPxeIeEOll86BseQq4tZQWRkYXRhgGRwcmV22CpYJgABhQESIBc40bD9K3vhfw8VoLDKskg+BuMW8JCvmYOr9E/NjrSj".to_string());
-
+        let data = vec![
+            163, 98, 105, 100, 216, 42, 88, 38, 0, 1, 133, 1, 18, 32, 33, 38, 237, 255, 127, 123,
+            236, 38, 58, 201, 108, 181, 208, 161, 100, 94, 80, 252, 94, 33, 225, 14, 150, 95, 58,
+            6, 199, 144, 171, 139, 89, 65, 100, 100, 97, 116, 97, 128, 100, 112, 114, 101, 118,
+            216, 42, 88, 38, 0, 1, 133, 1, 18, 32, 23, 56, 209, 176, 253, 43, 123, 225, 127, 15,
+            21, 160, 176, 202, 178, 72, 62, 6, 227, 22, 240, 144, 175, 153, 131, 171, 244, 79, 205,
+            142, 180, 163,
+        ];
         let result = Payload::try_from(data);
         assert!(result.is_ok());
     }
@@ -458,6 +446,11 @@ mod tests {
             225, 80, 136, 201, 125,
         ];
 
+        let node: Ipld = DagCborCodec.decode(&data).unwrap();
+        let result = libipld::serde::from_ipld::<AnchorValue>(node);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+
         let expected = AnchorValue {
             id: Cid::from_str("bagcqcera73sgdmuyznkpycnrkskk222l7qu6menvrx2ldyenjxdmsdabru6q")
                 .unwrap(),
@@ -468,13 +461,11 @@ mod tests {
             path: "0/0/0/1/0/0/0/0/1".to_string(),
         };
 
-        let result = IpldDecodeFrom::<AnchorValue>::decode(&data).unwrap();
         assert_eq!(result, expected);
     }
 
     #[test]
     fn test_decode_payload_valid_data() {
-        // Arrange
         let data = vec![
             162, 100, 100, 97, 116, 97, 166, 103, 111, 112, 116, 105, 111, 110, 115, 121, 10, 38,
             101, 121, 74, 109, 98, 50, 120, 107, 90, 88, 74, 79, 89, 87, 49, 108, 73, 106, 111,
@@ -639,57 +630,80 @@ mod tests {
 
     #[test]
     fn test_decode_cacao() {
-        let cacao = Base64String::from("o2FooWF0Z2VpcDQzNjFhcKljYXVkeDhkaWQ6a2V5Ono2TWt0RFZEVWhFYXVMYkVFWk1TQXRSMTc3ZER5Y2RvemN4UmZ3UHFUMmpRVkpVN2NleHB4GDIwMjMtMTAtMTRUMDc6Mjk6MjMuMTAyWmNpYXR4GDIwMjMtMTAtMDdUMDc6Mjk6MjMuMTAyWmNpc3N4O2RpZDpwa2g6ZWlwMTU1OjE6MHg1OTE1ZTI5MzgyM0ZDYTg0MGM5M0VEMkUxRTVCNGRmMzJkNjk5OTk5ZW5vbmNlbkRkbjdsU2MzdlFUd3F2ZmRvbWFpbnggY2VrcGZua2xjaWZpb21nZW9nYm1rbm5tY2dia2RwaW1ndmVyc2lvbmExaXJlc291cmNlc4p4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM4c29nY2M0MzhmZ2dzdW55YnVxNnE5ZWN4b2FvemN4ZThxbGprOHd1M3VxdTM5NHV4N3hRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2Y2F0ZWszNmgzcGVwMDlrOWd5bWZubGE5azZvamxncm13am9ndmpxZzhxM3pweWJsMXl1eFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjN3hsdGh6eDlkaXk2azNyM3MweGFmOGg3NG5neGhuY2dqd3llcGw1OHBrYTE1eDl5aGN4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM4NjFjenZkc2xlZDN5bHNhOTk3N2k3cmxvd3ljOWw3anBnNmUxaGp3aDlmZWZsNmJzdXhRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2Y2I0bXNkODhpOG1sanp5cDNhencwOXgyNnYza2pvamVpdGJleDE4MWVmaTk0ZzU4ZWxmeFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjN2d1ODhnNjZ6MjhuODFsY3BiZzZodTJ0OHB1MnB1aTBzZm5wdnNyaHFuM2t4aDl4YWl4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmNhd3JsN2Y3NjdiNmN6NDhkbjBlZnI5d2Z0eDl0OWplbHc5dGIxb3R4ejc1MmpoODZrbnhRY2VyYW1pYzovLyo/bW9kZWw9a2p6bDZodmZyYnc2Yzg2Z3Q5ajQxNXl3Mng4c3Rta290Y3J6cGV1dHJia3A0Mmk0ejkwZ3A1aWJwdHo0c3NveFFjZXJhbWljOi8vKj9tb2RlbD1ranpsNmh2ZnJidzZjNnZiNjR3aTg4dWI0N2dibWNoODJ3Y3BibWU1MWh5bTRzOXFicDJ1a2FjMHl0aHpiajl4UWNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmNhZ3Q2OTRpaW0yd3VlY3U3ZXVtZWRzN3FkMHA2dXptOGRucXNxNjlsbDdrYWNtMDVndWlzdGF0ZW1lbnR4MUdpdmUgdGhpcyBhcHBsaWNhdGlvbiBhY2Nlc3MgdG8gc29tZSBvZiB5b3VyIGRhdGFhc6Jhc3iEMHhmZDI0ZmVkNTA0MmFlMjdjYmY1NmUxN2FmNmJmZjdhNDQwZTZkMTY1NGZiNzhmZWQ4ZDNiYjdiN2RjOTRhMmFjMmY1MmU3M2EwMDdlZDhlMDExNzA2MGYyNzZjNTk2MTNhOGQ2OWI4NjgyNTJlYjZiMWE0MWE3ZGFkZWFlMzY3MzFiYXRmZWlwMTkx".to_string());
-
-        let b = &cacao.to_vec().unwrap();
-        let node: Ipld = DagCborCodec.decode(b).unwrap();
-        println!("{}", serde_json::to_string(&node).unwrap());
+        let data = vec![
+            163, 97, 104, 161, 97, 116, 103, 101, 105, 112, 52, 51, 54, 49, 97, 112, 169, 99, 97,
+            117, 100, 120, 56, 100, 105, 100, 58, 107, 101, 121, 58, 122, 54, 77, 107, 116, 68, 86,
+            68, 85, 104, 69, 97, 117, 76, 98, 69, 69, 90, 77, 83, 65, 116, 82, 49, 55, 55, 100, 68,
+            121, 99, 100, 111, 122, 99, 120, 82, 102, 119, 80, 113, 84, 50, 106, 81, 86, 74, 85,
+            55, 99, 101, 120, 112, 120, 24, 50, 48, 50, 51, 45, 49, 48, 45, 49, 52, 84, 48, 55, 58,
+            50, 57, 58, 50, 51, 46, 49, 48, 50, 90, 99, 105, 97, 116, 120, 24, 50, 48, 50, 51, 45,
+            49, 48, 45, 48, 55, 84, 48, 55, 58, 50, 57, 58, 50, 51, 46, 49, 48, 50, 90, 99, 105,
+            115, 115, 120, 59, 100, 105, 100, 58, 112, 107, 104, 58, 101, 105, 112, 49, 53, 53, 58,
+            49, 58, 48, 120, 53, 57, 49, 53, 101, 50, 57, 51, 56, 50, 51, 70, 67, 97, 56, 52, 48,
+            99, 57, 51, 69, 68, 50, 69, 49, 69, 53, 66, 52, 100, 102, 51, 50, 100, 54, 57, 57, 57,
+            57, 57, 101, 110, 111, 110, 99, 101, 110, 68, 100, 110, 55, 108, 83, 99, 51, 118, 81,
+            84, 119, 113, 118, 102, 100, 111, 109, 97, 105, 110, 120, 32, 99, 101, 107, 112, 102,
+            110, 107, 108, 99, 105, 102, 105, 111, 109, 103, 101, 111, 103, 98, 109, 107, 110, 110,
+            109, 99, 103, 98, 107, 100, 112, 105, 109, 103, 118, 101, 114, 115, 105, 111, 110, 97,
+            49, 105, 114, 101, 115, 111, 117, 114, 99, 101, 115, 138, 120, 81, 99, 101, 114, 97,
+            109, 105, 99, 58, 47, 47, 42, 63, 109, 111, 100, 101, 108, 61, 107, 106, 122, 108, 54,
+            104, 118, 102, 114, 98, 119, 54, 99, 56, 115, 111, 103, 99, 99, 52, 51, 56, 102, 103,
+            103, 115, 117, 110, 121, 98, 117, 113, 54, 113, 57, 101, 99, 120, 111, 97, 111, 122,
+            99, 120, 101, 56, 113, 108, 106, 107, 56, 119, 117, 51, 117, 113, 117, 51, 57, 52, 117,
+            120, 55, 120, 81, 99, 101, 114, 97, 109, 105, 99, 58, 47, 47, 42, 63, 109, 111, 100,
+            101, 108, 61, 107, 106, 122, 108, 54, 104, 118, 102, 114, 98, 119, 54, 99, 97, 116,
+            101, 107, 51, 54, 104, 51, 112, 101, 112, 48, 57, 107, 57, 103, 121, 109, 102, 110,
+            108, 97, 57, 107, 54, 111, 106, 108, 103, 114, 109, 119, 106, 111, 103, 118, 106, 113,
+            103, 56, 113, 51, 122, 112, 121, 98, 108, 49, 121, 117, 120, 81, 99, 101, 114, 97, 109,
+            105, 99, 58, 47, 47, 42, 63, 109, 111, 100, 101, 108, 61, 107, 106, 122, 108, 54, 104,
+            118, 102, 114, 98, 119, 54, 99, 55, 120, 108, 116, 104, 122, 120, 57, 100, 105, 121,
+            54, 107, 51, 114, 51, 115, 48, 120, 97, 102, 56, 104, 55, 52, 110, 103, 120, 104, 110,
+            99, 103, 106, 119, 121, 101, 112, 108, 53, 56, 112, 107, 97, 49, 53, 120, 57, 121, 104,
+            99, 120, 81, 99, 101, 114, 97, 109, 105, 99, 58, 47, 47, 42, 63, 109, 111, 100, 101,
+            108, 61, 107, 106, 122, 108, 54, 104, 118, 102, 114, 98, 119, 54, 99, 56, 54, 49, 99,
+            122, 118, 100, 115, 108, 101, 100, 51, 121, 108, 115, 97, 57, 57, 55, 55, 105, 55, 114,
+            108, 111, 119, 121, 99, 57, 108, 55, 106, 112, 103, 54, 101, 49, 104, 106, 119, 104,
+            57, 102, 101, 102, 108, 54, 98, 115, 117, 120, 81, 99, 101, 114, 97, 109, 105, 99, 58,
+            47, 47, 42, 63, 109, 111, 100, 101, 108, 61, 107, 106, 122, 108, 54, 104, 118, 102,
+            114, 98, 119, 54, 99, 98, 52, 109, 115, 100, 56, 56, 105, 56, 109, 108, 106, 122, 121,
+            112, 51, 97, 122, 119, 48, 57, 120, 50, 54, 118, 51, 107, 106, 111, 106, 101, 105, 116,
+            98, 101, 120, 49, 56, 49, 101, 102, 105, 57, 52, 103, 53, 56, 101, 108, 102, 120, 81,
+            99, 101, 114, 97, 109, 105, 99, 58, 47, 47, 42, 63, 109, 111, 100, 101, 108, 61, 107,
+            106, 122, 108, 54, 104, 118, 102, 114, 98, 119, 54, 99, 55, 103, 117, 56, 56, 103, 54,
+            54, 122, 50, 56, 110, 56, 49, 108, 99, 112, 98, 103, 54, 104, 117, 50, 116, 56, 112,
+            117, 50, 112, 117, 105, 48, 115, 102, 110, 112, 118, 115, 114, 104, 113, 110, 51, 107,
+            120, 104, 57, 120, 97, 105, 120, 81, 99, 101, 114, 97, 109, 105, 99, 58, 47, 47, 42,
+            63, 109, 111, 100, 101, 108, 61, 107, 106, 122, 108, 54, 104, 118, 102, 114, 98, 119,
+            54, 99, 97, 119, 114, 108, 55, 102, 55, 54, 55, 98, 54, 99, 122, 52, 56, 100, 110, 48,
+            101, 102, 114, 57, 119, 102, 116, 120, 57, 116, 57, 106, 101, 108, 119, 57, 116, 98,
+            49, 111, 116, 120, 122, 55, 53, 50, 106, 104, 56, 54, 107, 110, 120, 81, 99, 101, 114,
+            97, 109, 105, 99, 58, 47, 47, 42, 63, 109, 111, 100, 101, 108, 61, 107, 106, 122, 108,
+            54, 104, 118, 102, 114, 98, 119, 54, 99, 56, 54, 103, 116, 57, 106, 52, 49, 53, 121,
+            119, 50, 120, 56, 115, 116, 109, 107, 111, 116, 99, 114, 122, 112, 101, 117, 116, 114,
+            98, 107, 112, 52, 50, 105, 52, 122, 57, 48, 103, 112, 53, 105, 98, 112, 116, 122, 52,
+            115, 115, 111, 120, 81, 99, 101, 114, 97, 109, 105, 99, 58, 47, 47, 42, 63, 109, 111,
+            100, 101, 108, 61, 107, 106, 122, 108, 54, 104, 118, 102, 114, 98, 119, 54, 99, 54,
+            118, 98, 54, 52, 119, 105, 56, 56, 117, 98, 52, 55, 103, 98, 109, 99, 104, 56, 50, 119,
+            99, 112, 98, 109, 101, 53, 49, 104, 121, 109, 52, 115, 57, 113, 98, 112, 50, 117, 107,
+            97, 99, 48, 121, 116, 104, 122, 98, 106, 57, 120, 81, 99, 101, 114, 97, 109, 105, 99,
+            58, 47, 47, 42, 63, 109, 111, 100, 101, 108, 61, 107, 106, 122, 108, 54, 104, 118, 102,
+            114, 98, 119, 54, 99, 97, 103, 116, 54, 57, 52, 105, 105, 109, 50, 119, 117, 101, 99,
+            117, 55, 101, 117, 109, 101, 100, 115, 55, 113, 100, 48, 112, 54, 117, 122, 109, 56,
+            100, 110, 113, 115, 113, 54, 57, 108, 108, 55, 107, 97, 99, 109, 48, 53, 103, 117, 105,
+            115, 116, 97, 116, 101, 109, 101, 110, 116, 120, 49, 71, 105, 118, 101, 32, 116, 104,
+            105, 115, 32, 97, 112, 112, 108, 105, 99, 97, 116, 105, 111, 110, 32, 97, 99, 99, 101,
+            115, 115, 32, 116, 111, 32, 115, 111, 109, 101, 32, 111, 102, 32, 121, 111, 117, 114,
+            32, 100, 97, 116, 97, 97, 115, 162, 97, 115, 120, 132, 48, 120, 102, 100, 50, 52, 102,
+            101, 100, 53, 48, 52, 50, 97, 101, 50, 55, 99, 98, 102, 53, 54, 101, 49, 55, 97, 102,
+            54, 98, 102, 102, 55, 97, 52, 52, 48, 101, 54, 100, 49, 54, 53, 52, 102, 98, 55, 56,
+            102, 101, 100, 56, 100, 51, 98, 98, 55, 98, 55, 100, 99, 57, 52, 97, 50, 97, 99, 50,
+            102, 53, 50, 101, 55, 51, 97, 48, 48, 55, 101, 100, 56, 101, 48, 49, 49, 55, 48, 54,
+            48, 102, 50, 55, 54, 99, 53, 57, 54, 49, 51, 97, 56, 100, 54, 57, 98, 56, 54, 56, 50,
+            53, 50, 101, 98, 54, 98, 49, 97, 52, 49, 97, 55, 100, 97, 100, 101, 97, 101, 51, 54,
+            55, 51, 49, 98, 97, 116, 102, 101, 105, 112, 49, 57, 49,
+        ];
+        let node: Ipld = DagCborCodec.decode(&data).unwrap();
+        let cacao = libipld::serde::from_ipld::<CACAO>(node);
+        assert!(cacao.is_ok());
     }
-
-    // #[test]
-    // fn test_apply_to_commit() {
-    // let mut stream_state = StreamState::default();
-    // // gensis commit
-    // let event = Event {
-    //     value: SignedValue {
-    //         linked_block: Some(Payload {
-    //             data: Some(serde_json::json!({"foo": "bar"})),
-    //         }),
-    //         jws: todo!(),
-    //     },
-    //     cid: Default::default(),
-    // };
-    // assert!(event.apply_to(&mut stream_state).is_ok());
-    // assert_eq!(
-    //     stream_state.content,
-    //     serde_json::json!({
-    //         "foo": "bar",
-    //     })
-    // );
-
-    // // patch commit
-    // let event = Event::Signed(SignedEvent {
-    //     linked_block: Some(Payload {
-    //         id: "bagcqcera73sgdmuyznkpycnrkskk222l7qu6menvrx2ldyenjxdmsdabru6q"
-    //             .parse()
-    //             .ok(),
-    //         data: Some(serde_json::json!([
-    //             {
-    //                 "op": "replace",
-    //                 "path": "/foo",
-    //                 "value": "baz",
-    //             }
-    //         ])),
-    //         ..Default::default()
-    //     }),
-    //     ..Default::default()
-    // });
-    // assert!(event.apply_to(&mut stream_state).is_ok());
-    // assert_eq!(
-    //     stream_state.content,
-    //     serde_json::json!({
-    //         "foo": "baz",
-    //     })
-    // );
-    // }
 }

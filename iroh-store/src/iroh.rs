@@ -190,7 +190,13 @@ impl Client {
         dapp_id: &uuid::Uuid,
         genesis: Genesis,
     ) -> anyhow::Result<StreamState> {
-        let stream = Stream::new(dapp_id.clone(), genesis)?;
+        let stream = self.load_stream(&genesis.stream_id()?).await?;
+        let commit: event::Event = genesis.genesis.try_into()?;
+        // check if commit already exists
+        if stream.commits.iter().any(|ele| ele.cid == commit.cid) {
+            return Ok(stream.try_into()?);
+        }
+        let stream = Stream::new(dapp_id.clone(), genesis.r#type, commit)?;
         self.save_stream(stream).await
     }
 
@@ -200,7 +206,11 @@ impl Client {
         data: Data,
     ) -> anyhow::Result<StreamState> {
         let mut stream = self.load_stream(&data.stream_id).await?;
-        let commit = data.commit.try_into()?;
+        let commit: event::Event = data.commit.try_into()?;
+        // check if commit already exists
+        if stream.commits.iter().any(|ele| ele.cid == commit.cid) {
+            return Ok(stream.try_into()?);
+        }
         stream.add_commit(commit)?;
         self.save_stream(stream).await
     }
@@ -247,8 +257,7 @@ pub struct Stream {
 }
 
 impl Stream {
-    pub fn new(dapp_id: uuid::Uuid, genesis: Genesis) -> anyhow::Result<Self> {
-        let commit: event::Event = genesis.genesis.try_into()?;
+    pub fn new(dapp_id: uuid::Uuid, r#type: u64, commit: event::Event) -> anyhow::Result<Self> {
         if let event::EventValue::Signed(signed) = &commit.value {
             let expiration_time = match signed.cacao()? {
                 Some(cacao) => {
@@ -265,7 +274,7 @@ impl Stream {
 
             // TODO: check stream model in cacao resource models
             return Ok(Stream {
-                r#type: genesis.r#type,
+                r#type,
                 dapp_id,
                 expiration_time,
                 commits: vec![commit],
@@ -288,7 +297,7 @@ impl Stream {
     }
 
     pub fn add_commit(&mut self, commit: event::Event) -> anyhow::Result<()> {
-        let prev = commit.prev()?;
+        let prev = commit.prev()?.context("prev commit not found")?;
         if prev != self.commits.last().context("commits is empty")?.cid {
             anyhow::bail!("prev commit not match");
         }

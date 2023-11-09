@@ -57,6 +57,7 @@ pub struct StreamState {
     /// Anchor status for stream
     pub anchor_status: AnchorStatus,
     /// Anchor proof for stream
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub anchor_proof: Option<AnchorProof>,
     /// Type of document
     pub doctype: String,
