@@ -56,7 +56,7 @@ impl Event {
 
     pub fn apply_to(&self, state: &mut StreamState) -> anyhow::Result<()> {
         self.value.apply_to(state)?;
-        let ts = match &self.value {
+        let (ts, exp) = match &self.value {
             EventValue::Signed(signed) => {
                 if let Some(cacao) = signed.cacao()? {
                     (None, cacao.p.expiration_time()?)
@@ -69,8 +69,8 @@ impl Event {
         let state_log = StateLog {
             cid: self.cid.to_string(),
             r#type: self.log_type() as u64,
-            timestamp: ts.0,
-            expiration_time: ts.1.map(|t| t.timestamp()),
+            timestamp: ts,
+            expiration_time: exp.map(|t| t.timestamp()),
         };
         state.log.push(state_log);
         Ok(())

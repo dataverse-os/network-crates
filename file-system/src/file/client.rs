@@ -5,8 +5,11 @@ use dataverse_types::ceramic::{StreamId, StreamState};
 use dataverse_types::store::dapp::ModelStore;
 
 use crate::index_file::IndexFile;
+use crate::stream::StreamOperator;
 
 use super::{loader::StreamFileLoader, StreamFile};
+
+trait StreamFileOperator: StreamFileLoader + StreamOperator + Send + Sync {}
 
 pub struct Client<'a> {
     model_store: &'a ModelStore,

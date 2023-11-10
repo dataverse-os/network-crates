@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use ceramic_http_client::{FilterQuery, OperationFilter};
 use dataverse_types::ceramic::{StreamId, StreamState};
 
-use crate::{index_file::IndexFile, stream::StreamLoader};
+use crate::{index_file::IndexFile, stream::StreamOperator};
 
 #[async_trait::async_trait]
-pub trait StreamFileLoader: StreamLoader {
+pub trait StreamFileLoader: StreamOperator {
     async fn load_index_file_by_content_id(
         &self,
         ceramic: &String,

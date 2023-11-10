@@ -1,9 +1,20 @@
-use anyhow::{Context, Ok};
-use dataverse_iroh_store::commit::{Data, Genesis};
+use anyhow::Context;
+use dataverse_iroh_store::{
+    commit::{Data, Genesis},
+    Stream,
+};
 use dataverse_types::{
     ceramic::{LogType, StreamId, StreamState},
     store::dapp::ModelStore,
 };
+
+pub trait StreamOperator: StreamLoader + StreamPublisher {}
+
+#[async_trait::async_trait]
+impl StreamOperator for dataverse_iroh_store::Client {}
+
+#[async_trait::async_trait]
+impl StreamOperator for () {}
 
 #[async_trait::async_trait]
 pub trait StreamLoader {
@@ -126,48 +137,71 @@ impl StreamLoader for () {
 
 #[async_trait::async_trait]
 pub trait StreamPublisher {
-    async fn publish_streams(&self) -> anyhow::Result<()>;
+    async fn publish_all_streams(&self) -> anyhow::Result<()>;
+    async fn publish_stream(&self, stream: Stream) -> anyhow::Result<()>;
+}
+
+#[async_trait::async_trait]
+impl StreamPublisher for () {
+    async fn publish_all_streams(&self) -> anyhow::Result<()> {
+        todo!("publish streams");
+    }
+
+    async fn publish_stream(&self, _stream: Stream) -> anyhow::Result<()> {
+        todo!("publish stream");
+    }
 }
 
 #[async_trait::async_trait]
 impl StreamPublisher for dataverse_iroh_store::Client {
-    async fn publish_streams(&self) -> anyhow::Result<()> {
+    async fn publish_all_streams(&self) -> anyhow::Result<()> {
         let streams = self.list_all_streams().await?;
-        let model_store = ModelStore::get_instance();
         for stream in streams {
             if stream.published == stream.commits.len() {
                 continue;
             }
-            let ceramic = model_store.get_dapp_ceramic(&stream.dapp_id).await?;
-            let client = reqwest::Client::new();
-            let stream_id = stream.stream_id()?;
-            for ele in stream.commits {
-                match ele.log_type() {
-                    LogType::Genesis => {
-                        let url = format!("{}/api/v0/streams", ceramic);
-                        let genesis = Genesis {
-                            r#type: stream.r#type,
-                            genesis: ele.try_into()?,
-                            opts: serde_json::Value::Null,
-                        };
-                        let res = client.post(&url).json(&genesis).send().await?;
-                        log::debug!("publish genesis: {:?}", res)
-                    }
-                    LogType::Signed => {
-                        let url = format!("{}/api/v0/commits", ceramic);
-                        let genesis = Data {
-                            stream_id: stream_id.clone(),
-                            commit: ele.try_into()?,
-                            opts: serde_json::Value::Null,
-                        };
-                        let res = client.post(&url).json(&genesis).send().await?;
-                        log::debug!("publish signed: {:?}", res)
-                    }
-                    _ => anyhow::bail!("invalid log type"),
-                };
-            }
-            todo!("modify stream save new published");
+            self.publish_stream(stream).await?;
         }
-        todo!("publish streams");
+        Ok(())
+    }
+
+    async fn publish_stream(&self, mut stream: Stream) -> anyhow::Result<()> {
+        let model_store = ModelStore::get_instance();
+        let ceramic = model_store.get_dapp_ceramic(&stream.dapp_id).await?;
+        let client = reqwest::Client::new();
+        let stream_id = stream.stream_id()?;
+        for ele in &stream.commits {
+            match ele.log_type() {
+                LogType::Genesis => {
+                    let url = format!("{}/api/v0/streams", ceramic);
+                    let genesis = Genesis {
+                        r#type: stream.r#type,
+                        genesis: ele.clone().try_into()?,
+                        opts: serde_json::Value::Null,
+                    };
+                    match client.post(&url).json(&genesis).send().await {
+                        Ok(res) => log::debug!("publish genesis {:?}", res),
+                        Err(err) => log::error!("publish genesis {}", err),
+                    };
+                }
+                LogType::Signed => {
+                    let url = format!("{}/api/v0/commits", ceramic);
+                    let signed = Data {
+                        stream_id: stream_id.clone(),
+                        commit: ele.clone().try_into()?,
+                        opts: serde_json::Value::Null,
+                    };
+                    match client.post(&url).json(&signed).send().await {
+                        Ok(res) => log::debug!("publish signed {:?}", res),
+                        Err(err) => log::error!("publish signed {}", err),
+                    };
+                }
+                _ => anyhow::bail!("invalid log type"),
+            };
+        }
+
+        stream.published = stream.commits.len();
+        self.save_stream(&stream).await?;
+        Ok(())
     }
 }

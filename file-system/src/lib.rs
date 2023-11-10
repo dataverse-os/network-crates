@@ -7,4 +7,4 @@ mod index_file;
 mod index_folder;
 mod policy;
 mod schema;
-mod stream;
+pub mod stream;

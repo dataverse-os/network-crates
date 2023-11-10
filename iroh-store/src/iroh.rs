@@ -189,26 +189,27 @@ impl Client {
         &self,
         dapp_id: &uuid::Uuid,
         genesis: Genesis,
-    ) -> anyhow::Result<StreamState> {
+    ) -> anyhow::Result<(Stream, StreamState)> {
         let stream_id = genesis.stream_id()?;
         let commit: event::Event = genesis.genesis.try_into()?;
         // check if commit already exists
         if let Ok(stream) = self.load_stream(&stream_id).await {
             if stream.commits.iter().any(|ele| ele.cid == commit.cid) {
-                return Ok(stream.try_into()?);
+                let stream_state = stream.clone().try_into()?;
+                return Ok((stream, stream_state));
             }
         }
         let stream = Stream::new(dapp_id.clone(), genesis.r#type, &commit)?;
-        let state = self.save_stream(stream).await?;
+        let state = self.save_stream(&stream).await?;
         commit.verify_signature(&state)?;
-        Ok(state)
+        Ok((stream, state))
     }
 
     pub async fn save_data_commit(
         &self,
         _dapp_id: &uuid::Uuid,
         data: Data,
-    ) -> anyhow::Result<StreamState> {
+    ) -> anyhow::Result<(Stream, StreamState)> {
         let mut stream = self
             .load_stream(&data.stream_id)
             .await
@@ -216,22 +217,23 @@ impl Client {
         let commit: event::Event = data.commit.try_into()?;
         // check if commit already exists
         if stream.commits.iter().any(|ele| ele.cid == commit.cid) {
-            return Ok(stream.try_into()?);
+            let state = stream.clone().try_into()?;
+            return Ok((stream, state));
         }
         stream.add_commit(&commit)?;
 
-        let state = self.save_stream(stream).await?;
+        let state = self.save_stream(&stream).await?;
         commit.verify_signature(&state)?;
-        Ok(state)
+        Ok((stream, state))
     }
 
-    pub async fn save_stream(&self, stream: Stream) -> anyhow::Result<StreamState> {
+    pub async fn save_stream(&self, stream: &Stream) -> anyhow::Result<StreamState> {
         let stream_id = stream.stream_id()?;
 
         let key = stream.stream_id()?.to_vec()?;
         let value = serde_json::to_vec(&stream)?;
 
-        let state: StreamState = stream.try_into()?;
+        let state: StreamState = stream.clone().try_into()?;
         let model_id = state.model()?;
 
         self.set_model_of_stream(&stream_id, &model_id).await?;
@@ -257,7 +259,7 @@ impl Client {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stream {
     pub r#type: u64,
     pub dapp_id: uuid::Uuid,
@@ -374,14 +376,14 @@ mod tests {
         let state = client.save_genesis_commit(&dapp_id, genesis).await;
         assert!(state.is_ok());
         let state = state.unwrap();
-        let update_at = state.content["updatedAt"].clone();
+        let update_at = state.1.content["updatedAt"].clone();
 
         let data: Data = crate::commit::example::data();
 
         let result = client.save_data_commit(&dapp_id, data).await;
         assert!(result.is_ok());
 
-        let stream_id = state.stream_id()?;
+        let stream_id = state.1.stream_id()?;
 
         let stream = client.load_stream(&stream_id).await;
         assert!(stream.is_ok());

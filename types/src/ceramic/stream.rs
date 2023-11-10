@@ -18,9 +18,9 @@ pub struct StateLog {
     pub cid: String,
     /// Type of commit
     pub r#type: u64,
-
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<i64>,
-
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expiration_time: Option<i64>,
 }
 
