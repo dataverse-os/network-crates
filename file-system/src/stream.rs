@@ -80,7 +80,7 @@ impl StreamLoader for dataverse_iroh_store::Client {
         stream_id: &StreamId,
     ) -> anyhow::Result<StreamState> {
         let stream = self.load_stream(stream_id).await?;
-        stream.try_into()
+        self.load_stream_state(&stream).await
     }
 
     async fn load_streams(
@@ -157,7 +157,8 @@ impl StreamPublisher for dataverse_iroh_store::Client {
     async fn publish_all_streams(&self) -> anyhow::Result<()> {
         let streams = self.list_all_streams().await?;
         for stream in streams {
-            if stream.published == stream.commits.len() {
+            let commits = self.load_commits(&stream.tip).await?;
+            if stream.published == commits.len() {
                 continue;
             }
             self.publish_stream(stream).await?;
@@ -170,7 +171,8 @@ impl StreamPublisher for dataverse_iroh_store::Client {
         let ceramic = model_store.get_dapp_ceramic(&stream.dapp_id).await?;
         let client = reqwest::Client::new();
         let stream_id = stream.stream_id()?;
-        for ele in &stream.commits {
+        let commits = self.load_commits(&stream.tip).await?;
+        for ele in &commits {
             match ele.log_type() {
                 LogType::Genesis => {
                     let url = format!("{}/api/v0/streams", ceramic);
@@ -200,8 +202,8 @@ impl StreamPublisher for dataverse_iroh_store::Client {
             };
         }
 
-        stream.published = stream.commits.len();
-        self.save_stream(&stream).await?;
+        stream.published = commits.len();
+        // self.save_stream(&stream).await?;
         Ok(())
     }
 }

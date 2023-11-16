@@ -6,11 +6,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+bytes = "1.5.0"
 ceramic-core = { workspace = true }
+ceramic-kubo-rpc-server = { workspace = true }
 chrono = { version = "0.4.30", features = ["serde"] }
 dataverse-ceramic = { workspace = true }
 dataverse-types = { workspace = true }
 ed25519-dalek = "2.0.0"
+env_logger = "0.10.1"
 futures = "0.3.15"
 hex = "0.4.3"
 int-enum = { version = "0.5.0", features = ["convert"] }
@@ -27,6 +30,7 @@ quinn = "0.10"
 rand = "0.8.5"
 serde = { version = "1.0.183", features = ["derive"] }
 serde_json = { version = "1.0.106", features = ["raw_value"] }
+swagger = "6.4.1"
 tempfile = "3.8.0"
 tokio = { workspace = true }
 uuid = { workspace = true }

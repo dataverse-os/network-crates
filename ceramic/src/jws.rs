@@ -9,12 +9,18 @@ use libipld::{
 
 pub trait ToCid {
     fn cid(&self) -> anyhow::Result<Cid>;
+    fn to_vec(&self) -> anyhow::Result<Vec<u8>>;
 }
 
 impl ToCid for ceramic_core::Jws {
     fn cid(&self) -> anyhow::Result<Cid> {
         let jws: JsonWebSignature = TryIntoJwsSignature::try_into(self)?;
         jws.cid()
+    }
+
+    fn to_vec(&self) -> anyhow::Result<Vec<u8>> {
+        let jws: JsonWebSignature = TryIntoJwsSignature::try_into(self)?;
+        jws.to_vec()
     }
 }
 
@@ -24,6 +30,10 @@ impl ToCid for JsonWebSignature {
             0x85,
             Code::Sha2_256.digest(DagJoseCodec.encode(&self)?.as_ref()),
         ))
+    }
+
+    fn to_vec(&self) -> anyhow::Result<Vec<u8>> {
+        Ok(DagJoseCodec.encode(&self)?)
     }
 }
 

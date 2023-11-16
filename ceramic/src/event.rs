@@ -1,6 +1,6 @@
 use anyhow::Result;
 use ceramic_core::{Base64String, Base64UrlString, StreamId};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use dag_jose::DagJoseCodec;
 use dataverse_types::ceramic::{LogType, StateLog, StreamState};
 use json_patch::Patch;
@@ -26,22 +26,34 @@ impl Event {
         }
     }
 
-    pub fn verify_signature(&self, stream: &StreamState) -> anyhow::Result<()> {
+    pub fn verify_signature(
+        &self,
+        opts: Vec<VerifyOption>,
+    ) -> anyhow::Result<Option<DateTime<Utc>>> {
+        let mut expiration_time = None;
         if let EventValue::Signed(signed) = &self.value {
             if let Some(cacao) = signed.cacao()? {
-                let expiration_time = cacao.p.expiration_time()?;
-                if let Some(exp) = expiration_time {
-                    if exp < Utc::now() {
-                        anyhow::bail!("genesis commit expired");
+                for ele in opts {
+                    match ele {
+                        VerifyOption::ResourceModelsContain(model) => {
+                            let resource_models = cacao.p.resource_models()?;
+                            if !resource_models.contains(&model) {
+                                anyhow::bail!("invalid resource model");
+                            }
+                        }
+                        VerifyOption::ExpirationTimeBefore(before) => {
+                            expiration_time = cacao.p.expiration_time()?;
+                            if let Some(exp) = expiration_time {
+                                if exp < before {
+                                    anyhow::bail!("jws commit expired");
+                                }
+                            }
+                        }
                     }
-                }
-                let resource_models = cacao.p.resource_models()?;
-                if !resource_models.contains(&stream.model()?) {
-                    anyhow::bail!("invalid resource model");
                 }
             };
         };
-        Ok(())
+        Ok(expiration_time)
     }
 
     pub fn log_type(&self) -> LogType {
@@ -207,6 +219,10 @@ impl SignedValue {
         }
     }
 
+    pub fn payload_link(&self) -> anyhow::Result<Cid> {
+        return Ok(Cid::try_from(self.jws.payload.to_vec()?)?);
+    }
+
     pub fn cacao(&self) -> anyhow::Result<Option<CACAO>> {
         if let Some(cacao_block) = self.cacao_block.clone() {
             let node: Ipld = DagCborCodec.decode(&cacao_block)?;
@@ -285,6 +301,11 @@ impl TryFrom<&Ipld> for Header {
                 .expect("failed to parse unique"),
         })
     }
+}
+
+pub enum VerifyOption {
+    ResourceModelsContain(StreamId),
+    ExpirationTimeBefore(DateTime<Utc>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
