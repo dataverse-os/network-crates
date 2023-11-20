@@ -2,30 +2,21 @@ use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Context;
 use ceramic_core::Cid;
-use ceramic_kubo_rpc_server::{
-    models::{
-        self,
-        Codecs::{DagCbor, DagJose},
-    },
-    BlockGetPostResponse,
-};
+use ceramic_kubo_rpc_server::models::Codecs::{DagCbor, DagJose};
+use ceramic_kubo_rpc_server::models::{self};
+use ceramic_kubo_rpc_server::BlockGetPostResponse;
 use chrono::{DateTime, Utc};
-use dataverse_ceramic::{
-    event::{self, VerifyOption},
-    jws::ToCid,
-};
+use dataverse_ceramic::event::{self, VerifyOption};
+use dataverse_ceramic::jws::ToCid;
 use dataverse_types::ceramic::{StreamId, StreamState};
 use futures::TryStreamExt;
+use iroh::client::mem::{Doc, Iroh};
 pub use iroh::net::key::SecretKey;
-use iroh::{
-    client::mem::{Doc, Iroh},
-    node::Node,
-    rpc_protocol::DocTicket,
-};
-use iroh_bytes::store::flat::Store as BaoFileStore;
-use iroh_bytes::util::runtime;
-use iroh_sync::{store::GetFilter, store::Store, AuthorId};
-use iroh_sync::{Author, NamespaceId, NamespacePublicKey};
+use iroh::node::Node;
+use iroh::rpc_protocol::DocTicket;
+use iroh_bytes::{store::flat::Store as BaoFileStore, util::runtime};
+use iroh_sync::store::{Query, Store};
+use iroh_sync::{Author, AuthorId, NamespaceId, NamespacePublicKey, NamespaceSecret};
 use serde::{Deserialize, Serialize};
 use swagger::ByteArray;
 
@@ -140,7 +131,10 @@ impl Client {
     }
 
     async fn init_store(client: &Iroh, key: &str) -> anyhow::Result<Doc> {
-        let ticket = DocTicket::new(NamespaceId::from_str(key)?.to_bytes(), vec![]);
+        let ticket = DocTicket::new(
+            iroh_sync::Capability::Write(NamespaceSecret::from_str(key)?),
+            vec![],
+        );
         client.docs.import(ticket).await
     }
 
@@ -155,7 +149,7 @@ impl Client {
     }
 
     pub async fn list_models(&self) -> anyhow::Result<Vec<StreamId>> {
-        let mut stream = self.streams.get_many(GetFilter::All).await?;
+        let mut stream = self.streams.get_many(Query::all()).await?;
         let mut result = Vec::new();
         while let Some(entry) = stream.try_next().await? {
             let str = String::from_utf8(entry.key().to_vec())?;
@@ -180,7 +174,7 @@ impl Client {
         &self,
         model_id: &StreamId,
     ) -> anyhow::Result<Option<NamespaceId>> {
-        let mut stream = self.streams.get_many(GetFilter::All).await?;
+        let mut stream = self.streams.get_many(Query::all()).await?;
         while let Some(entry) = stream.try_next().await? {
             if entry.key() == model_id.to_string().as_bytes().to_vec() {
                 let content = self.streams.read_to_bytes(&entry).await?;
@@ -204,7 +198,7 @@ impl Client {
 
     async fn get_model_of_stream(&self, stream_id: &StreamId) -> anyhow::Result<StreamId> {
         let key = stream_id.to_vec()?;
-        let mut stream = self.model.get_many(GetFilter::Key(key)).await?;
+        let mut stream = self.model.get_many(Query::key_exact(key)).await?;
         if let Some(entry) = stream.try_next().await? {
             let content = self.model.read_to_bytes(&entry).await?;
             let content: StreamId = StreamId::try_from(content.to_vec().as_slice())?;
@@ -226,7 +220,7 @@ impl Client {
 
     async fn list_stream_in_model(&self, model_id: &StreamId) -> anyhow::Result<Vec<Stream>> {
         let doc: Doc = self.lookup_model_doc(model_id).await?;
-        let mut stream = doc.get_many(GetFilter::All).await?;
+        let mut stream = doc.get_many(Query::all()).await?;
         let mut result = Vec::new();
         while let Some(entry) = stream.try_next().await? {
             let content = doc.read_to_bytes(&entry).await?;
@@ -357,7 +351,7 @@ impl Client {
         let key = stream_id.to_vec()?;
 
         let doc = &self.lookup_model_doc(&model_id).await?;
-        let mut stream = doc.get_many(GetFilter::Key(key)).await?;
+        let mut stream = doc.get_many(Query::key_exact(key)).await?;
         if let Some(entry) = stream.try_next().await? {
             let content = doc.read_to_bytes(&entry).await?;
             let content: Stream = serde_json::from_slice(&content)?;

@@ -14,10 +14,10 @@ anyhow = "1"
 async-std = "1.12.0"
 async-trait = "0.1.73"
 base32 = "0.4.0"
-ceramic-core = { git = "https://github.com/dataverse-os/rust-ceramic.git", branch = "fix-kubo-block-put" }
-ceramic-event = { git = "https://github.com/dataverse-os/rust-ceramic.git", branch = "fix-kubo-block-put" }
+ceramic-core = { git = "https://github.com/dataverse-os/rust-ceramic.git", branch = "patch-kubo-block-put" }
+ceramic-event = { git = "https://github.com/dataverse-os/rust-ceramic.git", branch = "patch-kubo-block-put" }
 ceramic-http-client = { path = "./ceramic-http-client" }
-ceramic-kubo-rpc-server = { git = "https://github.com/dataverse-os/rust-ceramic.git", branch = "fix-kubo-block-put" }
+ceramic-kubo-rpc-server = { git = "https://github.com/dataverse-os/rust-ceramic.git", branch = "patch-kubo-block-put" }
 chrono = { version = "0.4.30", features = ["serde"] }
 dataverse-ceramic = { path = "./ceramic" }
 dataverse-iroh-store = { path = "./iroh-store" }
@@ -25,10 +25,10 @@ dataverse-types = { path = "./types" }
 dapp-table-client = { path = "./dapp-table/client" }
 futures = "0.3.15"
 hex = "0.4.3"
-iroh = "0.9.0"
-iroh-bytes = "0.9.0"
-iroh-net = "0.9.0"
-iroh-sync = "0.9.0"
+iroh = "0.11.0"
+iroh-bytes = "0.11.0"
+iroh-net = "0.11.0"
+iroh-sync = "0.11.0"
 int-enum = "0.5.0"
 json-patch = "1.2.0"
 log = "0.4.20"
