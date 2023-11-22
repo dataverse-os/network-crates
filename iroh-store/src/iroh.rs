@@ -6,8 +6,10 @@ use ceramic_kubo_rpc_server::models::Codecs::{DagCbor, DagJose};
 use ceramic_kubo_rpc_server::models::{self};
 use ceramic_kubo_rpc_server::BlockGetPostResponse;
 use chrono::{DateTime, Utc};
+use dataverse_ceramic::commit::{Content, Data, Genesis};
 use dataverse_ceramic::event::{self, VerifyOption};
 use dataverse_ceramic::jws::ToCid;
+use dataverse_ceramic::kubo;
 use dataverse_types::ceramic::{StreamId, StreamState};
 use futures::TryStreamExt;
 use iroh::client::mem::{Doc, Iroh};
@@ -19,11 +21,6 @@ use iroh_sync::store::{Query, Store};
 use iroh_sync::{Author, AuthorId, NamespaceId, NamespacePublicKey, NamespaceSecret};
 use serde::{Deserialize, Serialize};
 use swagger::ByteArray;
-
-use crate::{
-    commit::{Content, Data, Genesis},
-    kubo,
-};
 
 pub struct Client {
     pub iroh: Iroh,
@@ -434,7 +431,7 @@ mod tests {
         assert!(client.is_ok());
         let client = client.unwrap();
 
-        let genesis: Genesis = crate::commit::example::genesis();
+        let genesis: Genesis = dataverse_ceramic::commit::example::genesis();
 
         println!(
             "extract stream_id from genesis: {:?}",
@@ -447,7 +444,7 @@ mod tests {
         let (_, state) = state.unwrap();
         let update_at = state.content["updatedAt"].clone();
 
-        let data: Data = crate::commit::example::data();
+        let data: Data = dataverse_ceramic::commit::example::data();
 
         let result = client.save_data_commit(&dapp_id, data).await;
         assert!(result.is_ok());

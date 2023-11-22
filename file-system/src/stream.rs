@@ -1,10 +1,8 @@
 use anyhow::Context;
-use dataverse_iroh_store::{
-    commit::{Data, Genesis},
-    Stream,
-};
+use dataverse_ceramic::stream::EventsPublisher;
+use dataverse_iroh_store::Stream;
 use dataverse_types::{
-    ceramic::{LogType, StreamId, StreamState},
+    ceramic::{StreamId, StreamState},
     store::dapp::ModelStore,
 };
 
@@ -169,40 +167,12 @@ impl StreamPublisher for dataverse_iroh_store::Client {
     async fn publish_stream(&self, mut stream: Stream) -> anyhow::Result<()> {
         let model_store = ModelStore::get_instance();
         let ceramic = model_store.get_dapp_ceramic(&stream.dapp_id).await?;
-        let client = reqwest::Client::new();
         let stream_id = stream.stream_id()?;
-        let commits = self.load_commits(&stream.tip).await?;
-        for ele in &commits {
-            match ele.log_type() {
-                LogType::Genesis => {
-                    let url = format!("{}/api/v0/streams", ceramic);
-                    let genesis = Genesis {
-                        r#type: stream.r#type,
-                        genesis: ele.clone().try_into()?,
-                        opts: serde_json::Value::Null,
-                    };
-                    match client.post(&url).json(&genesis).send().await {
-                        Ok(res) => log::debug!("publish genesis {:?}", res),
-                        Err(err) => log::error!("publish genesis {}", err),
-                    };
-                }
-                LogType::Signed => {
-                    let url = format!("{}/api/v0/commits", ceramic);
-                    let signed = Data {
-                        stream_id: stream_id.clone(),
-                        commit: ele.clone().try_into()?,
-                        opts: serde_json::Value::Null,
-                    };
-                    match client.post(&url).json(&signed).send().await {
-                        Ok(res) => log::debug!("publish signed {:?}", res),
-                        Err(err) => log::error!("publish signed {}", err),
-                    };
-                }
-                _ => anyhow::bail!("invalid log type"),
-            };
-        }
+        let events = self.load_commits(&stream.tip).await?;
+        let ceramic = dataverse_ceramic::http::Client::init(&ceramic)?;
+        stream.published = events.len();
+        ceramic.publish_events(&stream_id, events).await?;
 
-        stream.published = commits.len();
         // self.save_stream(&stream).await?;
         Ok(())
     }
