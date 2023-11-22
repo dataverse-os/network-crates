@@ -33,5 +33,9 @@ jobs:
         with:
           version: "v0.4.0"
 
+      - uses: ibnesayeed/setup-ipfs@master
+        with:
+          run_daemon: true
+
       - name: Run cargo test
         run: cargo test --workspace --exclude ceramic-http-client
