@@ -81,6 +81,7 @@ impl TryFrom<ceramic_http_client::api::Commit> for Event {
                     prev: anchor.prev.as_ref().try_into()?,
                     proof: anchor.proof.as_ref().try_into()?,
                     path: anchor.path,
+                    proof_block: None,
                 }),
             }),
             ceramic_http_client::api::CommitValue::Signed(signed) => Ok(Event {
@@ -194,6 +195,7 @@ mod tests {
             proof: Cid::from_str("bafyreidtdpcjnltl7enswtp4s4xbsweb5zndvzihiyczl3t6ppqvbcgjpu")
                 .unwrap(),
             path: "0/0/0/1/0/0/0/0/1".to_string(),
+            proof_block: None,
         };
 
         assert_eq!(result, expected);

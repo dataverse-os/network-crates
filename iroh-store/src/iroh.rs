@@ -91,7 +91,7 @@ impl Client {
         let result;
         let res = self
             .kubo
-            .block_get_post(cid.to_string(), None, None)
+            .block_get_post(cid.to_string(), Some("1s".into()), None)
             .await?;
         match res {
             BlockGetPostResponse::Success(bytes) => {
@@ -109,10 +109,14 @@ impl Client {
         loop {
             let bytes = self.load_cid(&cid).await?;
             let mut commit = event::Event::decode(cid, bytes.to_vec())?;
-            if let event::EventValue::Signed(signed) = &mut commit.value {
-                let link = signed.payload_link()?;
-                let bytes = self.load_cid(&link).await?;
-                signed.linked_block = Some(bytes)
+            match &mut commit.value {
+                event::EventValue::Signed(signed) => {
+                    signed.linked_block = Some(self.load_cid(&signed.payload_link()?).await?);
+                    signed.cacao_block = Some(self.load_cid(&signed.cap()?).await?);
+                }
+                event::EventValue::Anchor(anchor) => {
+                    anchor.proof_block = Some(self.load_cid(&anchor.proof).await?)
+                }
             }
             commits.insert(0, commit.clone());
             match commit.prev()? {
@@ -438,20 +442,25 @@ mod tests {
             genesis.stream_id()?.to_string()
         );
 
+        // save genesis commit
         let dapp_id = uuid::Uuid::new_v4();
         let state = client.save_genesis_commit(&dapp_id, genesis).await;
         assert!(state.is_ok());
         let (_, state) = state.unwrap();
         let update_at = state.content["updatedAt"].clone();
 
+        // save data commit
         let data: Data = dataverse_ceramic::commit::example::data();
-
         let result = client.save_data_commit(&dapp_id, data).await;
         assert!(result.is_ok());
         let stream_id = state.stream_id()?;
+
+        // load stream
         let stream = client.load_stream(&stream_id).await;
         assert!(stream.is_ok());
         let stream = stream.unwrap();
+
+        // load commits
         let commits = client.load_commits(&stream.tip).await?;
         assert_eq!(commits.len(), 2);
         let state: anyhow::Result<StreamState> = stream.to_state(commits);
@@ -459,6 +468,8 @@ mod tests {
         let state = state.unwrap();
         let update_at_mod = state.content["updatedAt"].clone();
         assert_ne!(update_at, update_at_mod);
+
+        // list stream state in model
         let streams = client.list_stream_states_in_model(&state.model()?).await;
         assert!(streams.is_ok());
         assert_eq!(streams.unwrap().len(), 1);

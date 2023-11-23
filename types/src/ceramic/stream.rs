@@ -1,8 +1,6 @@
 use std::str::FromStr;
 
-use ceramic_core::Cid;
-use ceramic_core::MultiBase32String;
-use ceramic_core::StreamId;
+use ceramic_core::{Cid, MultiBase32String, StreamId};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -76,13 +74,13 @@ pub enum AnchorStatus {
     Replaced = 5,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnchorProof {
-    pub root: String,
-    pub tx_hash: MultiBase32String,
-    pub tx_type: Option<MultiBase32String>,
     pub chain_id: String,
+    pub root: MultiBase32String,
+    pub tx_hash: MultiBase32String,
+    pub tx_type: Option<String>,
 }
 
 impl StreamState {
@@ -173,6 +171,18 @@ mod tests {
         assert!(status.is_ok());
         let status = status.unwrap();
         assert_eq!(status, AnchorStatus::Anchored);
+    }
+
+    #[test]
+    fn decode_anchor_proof() {
+        let data = json!({
+          "root": "bafyreiaxfjkme33rujt5wfajbl7r6pcdhjw4gfzwmxqe7xs4wf3dwvxdpy",
+          "txHash": "bagjqcgzasq3bv55stn7sg6m6zhmfq2fhsdgt4sef4fwozianarbmemjmhu6q",
+          "txType": "f(bytes32)",
+          "chainId": "eip155:1"
+        });
+        let data = serde_json::from_value::<AnchorProof>(data);
+        assert!(data.is_ok());
     }
 
     #[test]
