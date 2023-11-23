@@ -201,7 +201,7 @@ impl Client {
             let content: StreamId = StreamId::try_from(content.to_vec().as_slice())?;
             return Ok(content);
         }
-        anyhow::bail!("not found")
+        anyhow::bail!("model of stream `{}` not found", stream_id)
     }
 
     async fn set_model_of_stream(
@@ -354,7 +354,7 @@ impl Client {
             let content: Stream = serde_json::from_slice(&content)?;
             return Ok(content);
         }
-        anyhow::bail!("not found")
+        anyhow::bail!("stream `{}` not found in model `{}`", stream_id, model_id)
     }
 }
 

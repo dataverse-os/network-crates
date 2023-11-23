@@ -16,13 +16,16 @@ pub struct Model {
 static MODEL_STORE: Lazy<ModelStore> = Lazy::new(ModelStore::new);
 
 pub struct ModelStore {
+    client: dapp_table_client::Client,
     models: HashMap<String, Model>,
 }
 
 impl ModelStore {
     fn new() -> Self {
+        let backend = std::env::var("DAPP_TABLE_BACKEND").ok();
         ModelStore {
             models: HashMap::new(),
+            client: dapp_table_client::Client::new(backend),
         }
     }
 
@@ -31,12 +34,18 @@ impl ModelStore {
     }
 
     pub async fn get_dapp_ceramic(&self, dapp_id: &uuid::Uuid) -> anyhow::Result<String> {
-        let dapp = dapp_table_client::lookup_dapp_by_dapp_id(&dapp_id.to_string()).await?;
+        let dapp = self
+            .client
+            .lookup_dapp_by_dapp_id(&dapp_id.to_string())
+            .await?;
         Ok(dapp.ceramic)
     }
 
-    pub async fn get_models(&self, app_id: &uuid::Uuid) -> anyhow::Result<Vec<Model>> {
-        let dapp = dapp_table_client::lookup_dapp_by_dapp_id(&app_id.to_string()).await?;
+    pub async fn get_models(&self, dapp_id: &uuid::Uuid) -> anyhow::Result<Vec<Model>> {
+        let dapp = self
+            .client
+            .lookup_dapp_by_dapp_id(&dapp_id.to_string())
+            .await?;
         let mut models = vec![];
         for model in dapp.models {
             let stream = model.streams.last().expect("get length 0 of model streams");
@@ -54,15 +63,18 @@ impl ModelStore {
 
     pub async fn get_model_by_name(
         &self,
-        app_id: &uuid::Uuid,
+        dapp_id: &uuid::Uuid,
         model_name: &str,
     ) -> anyhow::Result<Model> {
         for ele in &self.models {
-            if ele.1.model_name == model_name && ele.1.app_id == *app_id {
+            if ele.1.model_name == model_name && ele.1.app_id == *dapp_id {
                 return Ok(ele.1.clone());
             }
         }
-        let dapp = dapp_table_client::lookup_dapp_by_dapp_id(&app_id.to_string()).await?;
+        let dapp = self
+            .client
+            .lookup_dapp_by_dapp_id(&dapp_id.to_string())
+            .await?;
         for model in dapp.models {
             if model.model_name == model_name {
                 let stream = model.streams.last().expect("get length 0 of model streams");
@@ -80,7 +92,7 @@ impl ModelStore {
         anyhow::bail!(
             "model with name `{}` not found in dapp {}",
             model_name,
-            app_id
+            dapp_id
         )
     }
 
@@ -92,7 +104,7 @@ impl ModelStore {
         }
         match self.lookup_dapp_model_in_db(&model_id).await {
             Ok(model) => Ok(model),
-            Err(_) => ModelStore::lookup_dapp_model_by_query(&model_id).await,
+            Err(_) => self.lookup_dapp_model_by_query(&model_id).await,
         }
     }
 
@@ -108,12 +120,12 @@ impl ModelStore {
         }
     }
 
-    pub async fn lookup_dapp_model_by_query(model_id: &StreamId) -> anyhow::Result<Model> {
+    pub async fn lookup_dapp_model_by_query(&self, model_id: &StreamId) -> anyhow::Result<Model> {
         let variables = dapp_table_client::get_dapp::Variables {
             dapp_id: None,
             model_id: Some(model_id.to_string()),
         };
-        let dapp = dapp_table_client::lookup_dapp(variables).await?;
+        let dapp = self.client.lookup_dapp(variables).await?;
 
         for model in dapp.models {
             for (idx, ele) in model.streams.iter().enumerate() {
