@@ -247,7 +247,7 @@ impl Client {
                 ByteArray(content.linked_block.to_vec()?),
                 Some(DagCbor),
                 mhtype,
-                None,
+                Some(true),
             )
             .await?;
         let _ = kubo
@@ -255,7 +255,7 @@ impl Client {
                 ByteArray(content.cacao_block.to_vec()?),
                 Some(DagCbor),
                 mhtype,
-                None,
+                Some(true),
             )
             .await?;
         let _ = kubo
@@ -263,7 +263,7 @@ impl Client {
                 ByteArray(content.jws.to_vec()?),
                 Some(DagJose),
                 mhtype,
-                None,
+                Some(true),
             )
             .await?;
         Ok(())

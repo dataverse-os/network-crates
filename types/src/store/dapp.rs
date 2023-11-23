@@ -77,7 +77,11 @@ impl ModelStore {
             }
         }
 
-        anyhow::bail!("model not found")
+        anyhow::bail!(
+            "model with name `{}` not found in dapp {}",
+            model_name,
+            app_id
+        )
     }
 
     pub async fn get_model(&self, model_id: &StreamId) -> anyhow::Result<Model> {
@@ -104,31 +108,6 @@ impl ModelStore {
         }
     }
 
-    pub async fn lookup_dapp_models_by_query(model_id: &StreamId) -> anyhow::Result<Model> {
-        let variables = dapp_table_client::get_dapp::Variables {
-            dapp_id: None,
-            model_id: Some(model_id.to_string()),
-        };
-        let dapp = dapp_table_client::lookup_dapp(variables).await?;
-        println!("{:?}", dapp);
-
-        for model in dapp.models {
-            for (idx, ele) in model.streams.iter().enumerate() {
-                if ele.model_id == model_id.to_string() {
-                    return Ok(Model {
-                        model_id: ele.model_id.parse()?,
-                        app_id: dapp.id.parse()?,
-                        encryptable: ele.encryptable.clone(),
-                        model_name: model.model_name,
-                        version: idx as i32,
-                        indexed_on: dapp.ceramic.clone(),
-                    });
-                }
-            }
-        }
-        anyhow::bail!("model not found")
-    }
-
     pub async fn lookup_dapp_model_by_query(model_id: &StreamId) -> anyhow::Result<Model> {
         let variables = dapp_table_client::get_dapp::Variables {
             dapp_id: None,
@@ -150,6 +129,6 @@ impl ModelStore {
                 }
             }
         }
-        anyhow::bail!("model not found")
+        anyhow::bail!("model with id `{}` not found in dapp table", model_id)
     }
 }
