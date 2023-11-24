@@ -6,8 +6,7 @@ on:
       - '**.md'
     branches:
       - main
-  pull_request_target:
-  workflow_dispatch:
+  pull_request:
 
 jobs:
   build:
@@ -32,6 +31,11 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.2
         with:
           version: "v0.4.0"
+
+      - uses: ibnesayeed/setup-ipfs@master
+        with:
+          ipfs_version: ^0.24
+          run_daemon: true
 
       - name: Run cargo test
         run: cargo test --workspace --exclude ceramic-http-client

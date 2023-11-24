@@ -6,8 +6,10 @@ use ceramic_kubo_rpc_server::models::Codecs::{DagCbor, DagJose};
 use ceramic_kubo_rpc_server::models::{self};
 use ceramic_kubo_rpc_server::BlockGetPostResponse;
 use chrono::{DateTime, Utc};
+use dataverse_ceramic::commit::{Content, Data, Genesis};
 use dataverse_ceramic::event::{self, VerifyOption};
 use dataverse_ceramic::jws::ToCid;
+use dataverse_ceramic::kubo;
 use dataverse_types::ceramic::{StreamId, StreamState};
 use futures::TryStreamExt;
 use iroh::client::mem::{Doc, Iroh};
@@ -19,11 +21,6 @@ use iroh_sync::store::{Query, Store};
 use iroh_sync::{Author, AuthorId, NamespaceId, NamespacePublicKey, NamespaceSecret};
 use serde::{Deserialize, Serialize};
 use swagger::ByteArray;
-
-use crate::{
-    commit::{Content, Data, Genesis},
-    kubo,
-};
 
 pub struct Client {
     pub iroh: Iroh,
@@ -94,13 +91,21 @@ impl Client {
         let result;
         let res = self
             .kubo
-            .block_get_post(cid.to_string(), None, None)
+            .block_get_post(cid.to_string(), Some("1s".into()), None)
             .await?;
+
         match res {
             BlockGetPostResponse::Success(bytes) => {
                 result = bytes.to_vec();
             }
-            _ => anyhow::bail!("cid not found with in ipfs: {}", cid),
+            BlockGetPostResponse::BadRequest(err) => {
+                log::error!("bad request: {:?}", err);
+                anyhow::bail!("bad request: {:?}", err);
+            }
+            BlockGetPostResponse::InternalError(err) => {
+                log::error!("internal error: {:?}", err);
+                anyhow::bail!("internal error: {:?}", err);
+            }
         }
 
         Ok(result)
@@ -112,10 +117,14 @@ impl Client {
         loop {
             let bytes = self.load_cid(&cid).await?;
             let mut commit = event::Event::decode(cid, bytes.to_vec())?;
-            if let event::EventValue::Signed(signed) = &mut commit.value {
-                let link = signed.payload_link()?;
-                let bytes = self.load_cid(&link).await?;
-                signed.linked_block = Some(bytes)
+            match &mut commit.value {
+                event::EventValue::Signed(signed) => {
+                    signed.linked_block = Some(self.load_cid(&signed.payload_link()?).await?);
+                    signed.cacao_block = Some(self.load_cid(&signed.cap()?).await?);
+                }
+                event::EventValue::Anchor(anchor) => {
+                    anchor.proof_block = Some(self.load_cid(&anchor.proof).await?)
+                }
             }
             commits.insert(0, commit.clone());
             match commit.prev()? {
@@ -204,7 +213,7 @@ impl Client {
             let content: StreamId = StreamId::try_from(content.to_vec().as_slice())?;
             return Ok(content);
         }
-        anyhow::bail!("not found")
+        anyhow::bail!("model of stream `{}` not found", stream_id)
     }
 
     async fn set_model_of_stream(
@@ -242,7 +251,7 @@ impl Client {
         Ok(result)
     }
 
-    pub async fn save_jws_blobs(&self, content: &Content) -> anyhow::Result<()> {
+    pub async fn push_jws_blobs(&self, content: &Content) -> anyhow::Result<()> {
         let kubo = &self.kubo;
         let mhtype = Some(models::Multihash::Sha2256);
         let _ = kubo
@@ -278,7 +287,7 @@ impl Client {
         genesis: Genesis,
     ) -> anyhow::Result<(Stream, StreamState)> {
         let stream_id = genesis.stream_id()?;
-        self.save_jws_blobs(&genesis.genesis).await?;
+        self.push_jws_blobs(&genesis.genesis).await?;
         let commit: event::Event = genesis.genesis.try_into()?;
         // check if commit already exists
         if let Ok(stream) = self.load_stream(&stream_id).await {
@@ -308,7 +317,7 @@ impl Client {
             .load_stream(&data.stream_id)
             .await
             .context("stream not exist")?;
-        self.save_jws_blobs(&data.commit).await?;
+        self.push_jws_blobs(&data.commit).await?;
         let commit: event::Event = data.commit.try_into()?;
         // check if commit already exists
         let commits = &self.load_commits(&stream.tip).await?;
@@ -357,7 +366,7 @@ impl Client {
             let content: Stream = serde_json::from_slice(&content)?;
             return Ok(content);
         }
-        anyhow::bail!("not found")
+        anyhow::bail!("stream `{}` not found in model `{}`", stream_id, model_id)
     }
 }
 
@@ -434,27 +443,32 @@ mod tests {
         assert!(client.is_ok());
         let client = client.unwrap();
 
-        let genesis: Genesis = crate::commit::example::genesis();
+        let genesis: Genesis = dataverse_ceramic::commit::example::genesis();
 
         println!(
             "extract stream_id from genesis: {:?}",
             genesis.stream_id()?.to_string()
         );
 
+        // save genesis commit
         let dapp_id = uuid::Uuid::new_v4();
         let state = client.save_genesis_commit(&dapp_id, genesis).await;
         assert!(state.is_ok());
         let (_, state) = state.unwrap();
         let update_at = state.content["updatedAt"].clone();
 
-        let data: Data = crate::commit::example::data();
-
+        // save data commit
+        let data: Data = dataverse_ceramic::commit::example::data();
         let result = client.save_data_commit(&dapp_id, data).await;
         assert!(result.is_ok());
         let stream_id = state.stream_id()?;
+
+        // load stream
         let stream = client.load_stream(&stream_id).await;
         assert!(stream.is_ok());
         let stream = stream.unwrap();
+
+        // load commits
         let commits = client.load_commits(&stream.tip).await?;
         assert_eq!(commits.len(), 2);
         let state: anyhow::Result<StreamState> = stream.to_state(commits);
@@ -462,6 +476,8 @@ mod tests {
         let state = state.unwrap();
         let update_at_mod = state.content["updatedAt"].clone();
         assert_ne!(update_at, update_at_mod);
+
+        // list stream state in model
         let streams = client.list_stream_states_in_model(&state.model()?).await;
         assert!(streams.is_ok());
         assert_eq!(streams.unwrap().len(), 1);

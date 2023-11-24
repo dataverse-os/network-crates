@@ -1,3 +1,0 @@
-consolidate-commits = false
-allow-branch = ["main"]
-tag-name = "{{prefix}}v{{prev_version}}"

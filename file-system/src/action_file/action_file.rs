@@ -1,16 +1,21 @@
 use ceramic_core::{Base64String, StreamId};
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionFile {
-    pub action: Base64String,
     pub file_name: String,
     pub file_type: u64,
-    pub created_at: DateTime<Utc>,
     pub fs_version: String,
+    pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub access_control: Option<String>,
+
+    pub deleted: Option<bool>,
+    pub reserved: Option<String>,
+
+    pub action: Base64String,
     // must be a file or union
     pub relation_id: StreamId,
 }
@@ -30,7 +35,7 @@ pub struct Action {
     is_comment_encrypted: Option<bool>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ActionType {
     Like,

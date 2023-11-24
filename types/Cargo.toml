@@ -8,6 +8,7 @@ edition = "2021"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 ceramic-core = { workspace = true }
+ceramic-http-client = { workspace = true }
 dapp-table-client = { workspace = true }
 hex = { workspace = true }
 int-enum = { workspace = true }

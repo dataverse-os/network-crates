@@ -1,6 +1,11 @@
 pub mod cacao;
+pub mod chains;
+pub mod commit;
 pub mod did;
 pub mod event;
 pub mod http;
 pub mod jws;
+pub mod kubo;
+pub mod message;
+pub mod pubsub;
 pub mod stream;

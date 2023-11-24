@@ -1,17 +1,23 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentType {
     pub resource: ContentTypeResourceType,
     pub resource_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub enum ContentTypeResourceType {
     CERAMIC,
     WEAVEDB,
     IPFS,
+}
+
+impl Default for ContentTypeResourceType {
+    fn default() -> Self {
+        ContentTypeResourceType::CERAMIC
+    }
 }
 
 #[cfg(test)]

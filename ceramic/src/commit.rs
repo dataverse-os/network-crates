@@ -1,10 +1,11 @@
 use std::str::FromStr;
 
+use super::event::{self, EventValue};
+use super::jws::ToCid;
 use anyhow::{Context, Ok};
 use ceramic_core::{Base64String, Jws, StreamId};
 use ceramic_core::{Cid, StreamIdType};
-use dataverse_ceramic::event::{self, EventValue};
-use dataverse_ceramic::jws::ToCid;
+use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -22,7 +23,7 @@ impl Genesis {
 
     pub fn stream_id(&self) -> anyhow::Result<StreamId> {
         let stream_id = StreamId {
-            r#type: StreamIdType::try_from(self.r#type)?,
+            r#type: StreamIdType::from_int(self.r#type)?,
             cid: self.genesis.cid()?,
         };
         Ok(stream_id)
@@ -45,17 +46,25 @@ pub struct Content {
     pub cacao_block: Base64String,
 }
 
+impl TryInto<event::SignedValue> for Content {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<event::SignedValue, Self::Error> {
+        Ok(event::SignedValue {
+            jws: self.jws,
+            linked_block: Some(self.linked_block.to_vec()?),
+            cacao_block: Some(self.cacao_block.to_vec()?),
+        })
+    }
+}
+
 impl TryInto<event::Event> for Content {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<event::Event, Self::Error> {
         Ok(event::Event {
             cid: self.jws.cid()?,
-            value: EventValue::Signed(event::SignedValue {
-                jws: self.jws,
-                linked_block: Some(self.linked_block.to_vec()?),
-                cacao_block: Some(self.cacao_block.to_vec()?),
-            }),
+            value: EventValue::Signed(self.try_into()?),
         })
     }
 }
@@ -85,7 +94,6 @@ impl Content {
     }
 }
 
-#[cfg(test)]
 pub mod example {
     use super::*;
 

@@ -1,28 +1,13 @@
 use std::str::FromStr;
 
-use ceramic_core::Cid;
-use ceramic_core::MultiBase32String;
-use ceramic_core::StreamId;
+use ceramic_core::{Cid, MultiBase32String, StreamId};
+use ceramic_http_client::api::StateLog;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::commit_id::CommitId;
 use super::stream_id::StreamIdType;
-
-/// Log entry for stream
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StateLog {
-    /// CID for commit
-    pub cid: String,
-    /// Type of commit
-    pub r#type: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timestamp: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expiration_time: Option<i64>,
-}
 
 #[repr(u64)]
 #[derive(Copy, Clone, Debug, Eq, IntEnum, PartialEq)]
@@ -76,13 +61,13 @@ pub enum AnchorStatus {
     Replaced = 5,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnchorProof {
-    pub root: String,
-    pub tx_hash: MultiBase32String,
-    pub tx_type: Option<MultiBase32String>,
     pub chain_id: String,
+    pub root: MultiBase32String,
+    pub tx_hash: MultiBase32String,
+    pub tx_type: Option<String>,
 }
 
 impl StreamState {
@@ -173,6 +158,26 @@ mod tests {
         assert!(status.is_ok());
         let status = status.unwrap();
         assert_eq!(status, AnchorStatus::Anchored);
+
+        let status = "ANCHORED";
+        let status =
+            serde_json::from_value::<AnchorStatus>(serde_json::Value::String(status.to_string()));
+        println!("{:?}", status);
+        assert!(status.is_ok());
+        let status = status.unwrap();
+        assert_eq!(status, AnchorStatus::Anchored);
+    }
+
+    #[test]
+    fn decode_anchor_proof() {
+        let data = json!({
+          "root": "bafyreiaxfjkme33rujt5wfajbl7r6pcdhjw4gfzwmxqe7xs4wf3dwvxdpy",
+          "txHash": "bagjqcgzasq3bv55stn7sg6m6zhmfq2fhsdgt4sef4fwozianarbmemjmhu6q",
+          "txType": "f(bytes32)",
+          "chainId": "eip155:1"
+        });
+        let data = serde_json::from_value::<AnchorProof>(data);
+        assert!(data.is_ok());
     }
 
     #[test]
