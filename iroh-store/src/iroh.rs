@@ -93,11 +93,19 @@ impl Client {
             .kubo
             .block_get_post(cid.to_string(), Some("1s".into()), None)
             .await?;
+
         match res {
             BlockGetPostResponse::Success(bytes) => {
                 result = bytes.to_vec();
             }
-            _ => anyhow::bail!("cid not found with in ipfs: {}", cid),
+            BlockGetPostResponse::BadRequest(err) => {
+                log::error!("bad request: {:?}", err);
+                anyhow::bail!("bad request: {:?}", err);
+            }
+            BlockGetPostResponse::InternalError(err) => {
+                log::error!("internal error: {:?}", err);
+                anyhow::bail!("internal error: {:?}", err);
+            }
         }
 
         Ok(result)
@@ -243,7 +251,7 @@ impl Client {
         Ok(result)
     }
 
-    pub async fn save_jws_blobs(&self, content: &Content) -> anyhow::Result<()> {
+    pub async fn push_jws_blobs(&self, content: &Content) -> anyhow::Result<()> {
         let kubo = &self.kubo;
         let mhtype = Some(models::Multihash::Sha2256);
         let _ = kubo
@@ -251,7 +259,7 @@ impl Client {
                 ByteArray(content.linked_block.to_vec()?),
                 Some(DagCbor),
                 mhtype,
-                Some(true),
+                None,
             )
             .await?;
         let _ = kubo
@@ -259,7 +267,7 @@ impl Client {
                 ByteArray(content.cacao_block.to_vec()?),
                 Some(DagCbor),
                 mhtype,
-                Some(true),
+                None,
             )
             .await?;
         let _ = kubo
@@ -267,7 +275,7 @@ impl Client {
                 ByteArray(content.jws.to_vec()?),
                 Some(DagJose),
                 mhtype,
-                Some(true),
+                None,
             )
             .await?;
         Ok(())
@@ -279,7 +287,7 @@ impl Client {
         genesis: Genesis,
     ) -> anyhow::Result<(Stream, StreamState)> {
         let stream_id = genesis.stream_id()?;
-        self.save_jws_blobs(&genesis.genesis).await?;
+        self.push_jws_blobs(&genesis.genesis).await?;
         let commit: event::Event = genesis.genesis.try_into()?;
         // check if commit already exists
         if let Ok(stream) = self.load_stream(&stream_id).await {
@@ -309,7 +317,7 @@ impl Client {
             .load_stream(&data.stream_id)
             .await
             .context("stream not exist")?;
-        self.save_jws_blobs(&data.commit).await?;
+        self.push_jws_blobs(&data.commit).await?;
         let commit: event::Event = data.commit.try_into()?;
         // check if commit already exists
         let commits = &self.load_commits(&stream.tip).await?;
