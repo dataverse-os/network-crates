@@ -52,7 +52,7 @@ impl StreamFileLoader for () {
         let filter_query = FilterQuery::Where(where_filter);
         let query_edges = ceramic
             .ceramic
-            .query_all(&None, model_id, Some(filter_query))
+            .query_all(None, model_id, Some(filter_query))
             .await?;
         if query_edges.len() != 1 {
             anyhow::bail!("index file not found")
@@ -60,7 +60,7 @@ impl StreamFileLoader for () {
         if let Some(edge) = query_edges.first() {
             if let Some(state) = &edge.node {
                 return Ok((
-                    state.clone(),
+                    state.clone().try_into()?,
                     serde_json::from_value::<IndexFile>(state.content.clone())?,
                 ));
             }

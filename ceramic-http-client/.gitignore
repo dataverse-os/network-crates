@@ -1,6 +1,0 @@
-.idea
-Cargo.lock
-/target
-/it/data/statestore
-/it/data/ceramic.db
-/it/data/log

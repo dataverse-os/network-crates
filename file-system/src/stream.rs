@@ -111,7 +111,8 @@ impl StreamLoader for () {
     ) -> anyhow::Result<StreamState> {
         let ceramic = dataverse_ceramic::http::Client::init(ceramic)?;
         let stream = ceramic.ceramic.get(stream_id).await?;
-        stream.state.context("Failed to load stream")
+        let state = stream.state.context("Failed to load stream")?.try_into()?;
+        Ok(state)
     }
 
     async fn load_streams(
@@ -121,12 +122,12 @@ impl StreamLoader for () {
         model_id: &StreamId,
     ) -> anyhow::Result<Vec<StreamState>> {
         let ceramic = dataverse_ceramic::http::Client::init(ceramic)?;
-        let edges = ceramic.ceramic.query_all(&None, model_id, None).await?;
+        let edges = ceramic.ceramic.query_all(None, model_id, None).await?;
 
         let mut streams = Vec::new();
         for edge in edges {
             if let Some(node) = edge.node {
-                streams.push(node);
+                streams.push(node.try_into()?);
             }
         }
         Ok(streams)

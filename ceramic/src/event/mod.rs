@@ -4,7 +4,8 @@ mod signed;
 mod verify;
 
 use anyhow::Result;
-use dataverse_types::ceramic::{LogType, StateLog, StreamState};
+use ceramic_http_client::api::StateLog;
+use dataverse_types::ceramic::{LogType, StreamState};
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid};
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,5 @@
 pub mod cacao;
+pub mod chains;
 pub mod commit;
 pub mod did;
 pub mod event;

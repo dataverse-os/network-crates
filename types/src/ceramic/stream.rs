@@ -1,26 +1,13 @@
 use std::str::FromStr;
 
 use ceramic_core::{Cid, MultiBase32String, StreamId};
+use ceramic_http_client::api::StateLog;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::commit_id::CommitId;
 use super::stream_id::StreamIdType;
-
-/// Log entry for stream
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StateLog {
-    /// CID for commit
-    pub cid: String,
-    /// Type of commit
-    pub r#type: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timestamp: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expiration_time: Option<i64>,
-}
 
 #[repr(u64)]
 #[derive(Copy, Clone, Debug, Eq, IntEnum, PartialEq)]
@@ -168,6 +155,14 @@ mod tests {
     fn test_deserialize_anchor_status() {
         let status = json!("ANCHORED");
         let status = serde_json::from_value::<AnchorStatus>(status);
+        assert!(status.is_ok());
+        let status = status.unwrap();
+        assert_eq!(status, AnchorStatus::Anchored);
+
+        let status = "ANCHORED";
+        let status =
+            serde_json::from_value::<AnchorStatus>(serde_json::Value::String(status.to_string()));
+        println!("{:?}", status);
         assert!(status.is_ok());
         let status = status.unwrap();
         assert_eq!(status, AnchorStatus::Anchored);

@@ -21,7 +21,7 @@ impl Client {
     }
 
     pub async fn load_commits(&self, stream_id: &StreamId) -> anyhow::Result<Vec<Event>> {
-        let commits = self.ceramic.commits(&stream_id).await?.commits;
+        let commits = self.ceramic.commits(stream_id).await?.commits;
         let mut events = vec![];
         for commit in commits {
             events.push(commit.try_into()?)
@@ -53,7 +53,7 @@ impl NullSigner {
 }
 
 #[async_trait::async_trait]
-impl ceramic_core::Signer for NullSigner {
+impl ceramic_http_client::ceramic_event::Signer for NullSigner {
     fn algorithm(&self) -> Algorithm {
         Algorithm::EdDSA
     }

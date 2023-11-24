@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
   "ceramic",
-  "ceramic-http-client",
   "dapp-table/client",
   "file-system",
   "iroh-store",
@@ -14,10 +13,10 @@ anyhow = "1"
 async-std = "1.12.0"
 async-trait = "0.1.73"
 base32 = "0.4.0"
-ceramic-core = { git = "https://github.com/dataverse-os/rust-ceramic.git", branch = "patch-kubo-block-put" }
-ceramic-event = { git = "https://github.com/dataverse-os/rust-ceramic.git", branch = "patch-kubo-block-put" }
-ceramic-http-client = { path = "./ceramic-http-client" }
-ceramic-kubo-rpc-server = { git = "https://github.com/dataverse-os/rust-ceramic.git", branch = "patch-kubo-block-put" }
+ceramic-core = { git = "https://github.com/ceramicnetwork/rust-ceramic", branch = "main" }
+ceramic-event = { git = "https://github.com/ceramicnetwork/rust-ceramic", branch = "main" }
+ceramic-http-client = { git = "https://github.com/3box/ceramic-http-client-rs", branch = "main"}
+ceramic-kubo-rpc-server = { git = "https://github.com/ceramicnetwork/rust-ceramic", branch = "main" }
 chrono = { version = "0.4.30", features = ["serde"] }
 dataverse-ceramic = { path = "./ceramic" }
 dataverse-iroh-store = { path = "./iroh-store" }
@@ -44,3 +43,14 @@ tempfile = "3.8.0"
 tokio = { version = "1.31.0", features = ["full"] }
 url = "2.4.0"
 uuid = { version = "1.4.1", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
+
+[patch.'https://github.com/ceramicnetwork/rust-ceramic']
+ceramic-core = { git = "https://github.com/dataverse-os/rust-ceramic", branch = "patch-kubo-block-put" }
+ceramic-event = { git = "https://github.com/dataverse-os/rust-ceramic", branch = "patch-kubo-block-put" }
+ceramic-kubo-rpc-server = { git = "https://github.com/dataverse-os/rust-ceramic", branch = "patch-kubo-block-put" }
+
+[patch.'https://github.com/3box/ceramic-http-client-rs']
+ceramic-http-client = { git = "https://github.com/dataverse-os/ceramic-http-client-rs", branch = "patch-methods"}
+
+[patch.'https://github.com/3box/rust-ceramic']
+ceramic-event = { git = "https://github.com/dataverse-os/rust-ceramic", branch = "patch-kubo-block-put" }
