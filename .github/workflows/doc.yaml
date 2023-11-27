@@ -43,7 +43,9 @@ jobs:
           run_daemon: true
 
       - name: Install dependencies
-        run: apt install tree make -y
+        run: |
+          sudo apt update
+          sudo apt install tree make -y
 
       - name: Run cargo doc
         run: make doc

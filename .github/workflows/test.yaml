@@ -37,5 +37,5 @@ jobs:
           ipfs_version: ^0.24
           run_daemon: true
 
-      - name: Build cargo docs
-        run: cargo docs
+      - name: Run cargo test
+        run: cargo test --workspace
