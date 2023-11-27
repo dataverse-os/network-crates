@@ -5,12 +5,12 @@ use ceramic_core::{Cid, StreamId};
 use ceramic_kubo_rpc_server::models;
 use ceramic_kubo_rpc_server::models::Codecs::{DagCbor, DagJose};
 use ceramic_kubo_rpc_server::BlockGetPostResponse;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use dataverse_ceramic::commit::{Content, Data, Genesis};
-use dataverse_ceramic::event::jws::ToCid;
-use dataverse_ceramic::event::{self, VerifyOption};
+use dataverse_ceramic::event::{self, jws::ToCid, VerifyOption};
 use dataverse_ceramic::kubo;
 use dataverse_ceramic::stream::StreamState;
+use dataverse_core::stream::Stream;
 use futures::TryStreamExt;
 use iroh::client::mem::{Doc, Iroh};
 pub use iroh::net::key::SecretKey;
@@ -19,7 +19,6 @@ use iroh::rpc_protocol::DocTicket;
 use iroh_bytes::{store::flat::Store as BaoFileStore, util::runtime};
 use iroh_sync::store::{Query, Store};
 use iroh_sync::{Author, AuthorId, NamespaceId, NamespacePublicKey, NamespaceSecret};
-use serde::{Deserialize, Serialize};
 use swagger::ByteArray;
 
 pub struct Client {
@@ -136,7 +135,8 @@ impl Client {
     }
 
     pub async fn load_stream_state(&self, stream: &Stream) -> anyhow::Result<StreamState> {
-        stream.to_state(self.load_commits(&stream.tip).await?)
+        let commits = self.load_commits(&stream.tip).await?;
+        StreamState::new(stream.r#type, commits)
     }
 
     async fn init_store(client: &Iroh, key: &str) -> anyhow::Result<Doc> {
@@ -293,12 +293,12 @@ impl Client {
         if let Ok(stream) = self.load_stream(&stream_id).await {
             let commits = &self.load_commits(&stream.tip).await?;
             if commits.iter().any(|ele| ele.cid == commit.cid) {
-                let state = stream.to_state(commits.to_vec())?;
+                let state = StreamState::new(stream.r#type, commits.to_vec())?;
                 return Ok((stream, state));
             }
         }
         let stream = Stream::new(dapp_id.clone(), genesis.r#type, &commit)?;
-        let state = stream.to_state(vec![commit.clone()])?;
+        let state = StreamState::new(genesis.r#type, vec![commit.clone()])?;
         self.save_stream(&state.model()?, &stream).await?;
         let opts = vec![
             VerifyOption::ResourceModelsContain(state.model()?),
@@ -322,14 +322,14 @@ impl Client {
         // check if commit already exists
         let commits = &self.load_commits(&stream.tip).await?;
         if commits.iter().any(|ele| ele.cid == commit.cid) {
-            let state = stream.to_state(commits.to_vec())?;
+            let state = StreamState::new(stream.r#type, commits.to_vec())?;
             return Ok((stream, state));
         }
         let prev = commit.prev()?.context("prev commit not found")?;
         if commits.iter().all(|ele| ele.cid != prev) {
             anyhow::bail!("donot have prev commit");
         }
-        let state = stream.to_state(commits.to_vec())?;
+        let state = StreamState::new(stream.r#type, commits.to_vec())?;
 
         stream.tip = commit.cid;
         let model = state.model()?;
@@ -367,55 +367,6 @@ impl Client {
             return Ok(content);
         }
         anyhow::bail!("stream `{}` not found in model `{}`", stream_id, model_id)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Stream {
-    pub r#type: u64,
-    pub dapp_id: uuid::Uuid,
-    // pub network: String,
-    pub expiration_time: Option<DateTime<Utc>>,
-    pub genesis: Cid,
-    pub tip: Cid,
-    pub published: usize,
-}
-
-impl Stream {
-    pub fn new(dapp_id: uuid::Uuid, r#type: u64, commit: &event::Event) -> anyhow::Result<Self> {
-        if let event::EventValue::Signed(signed) = &commit.value {
-            let expiration_time = match signed.cacao()? {
-                Some(cacao) => cacao.p.expiration_time()?,
-                None => None,
-            };
-            return Ok(Stream {
-                r#type,
-                dapp_id,
-                expiration_time,
-                published: 0,
-                tip: commit.cid,
-                genesis: commit.cid,
-            });
-        }
-        anyhow::bail!("invalid genesis commit");
-    }
-
-    pub fn to_state(&self, commits: Vec<event::Event>) -> anyhow::Result<StreamState> {
-        let mut state = StreamState {
-            r#type: self.r#type,
-            ..Default::default()
-        };
-        for ele in commits {
-            ele.apply_to(&mut state)?;
-        }
-        Ok(state)
-    }
-
-    pub fn stream_id(&self) -> anyhow::Result<StreamId> {
-        Ok(StreamId {
-            r#type: self.r#type.try_into()?,
-            cid: self.genesis,
-        })
     }
 }
 
@@ -472,7 +423,7 @@ mod tests {
         // load commits
         let commits = client.load_commits(&stream.tip).await?;
         assert_eq!(commits.len(), 2);
-        let state: anyhow::Result<StreamState> = stream.to_state(commits);
+        let state = StreamState::new(stream.r#type, commits.to_vec());
         assert!(state.is_ok());
         let state = state.unwrap();
         let update_at_mod = state.content["updatedAt"].clone();

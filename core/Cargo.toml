@@ -9,6 +9,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 ceramic-core = { workspace = true }
 ceramic-http-client = { workspace = true }
+chrono = { version = "0.4.30", features = ["serde"] }
 dapp-table-client = { workspace = true }
 dataverse-ceramic = { workspace = true }
 hex = { workspace = true }

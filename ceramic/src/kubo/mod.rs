@@ -1,21 +1,25 @@
+pub mod message;
+pub mod pubsub;
 pub mod store;
 
 use std::sync::Arc;
 
-use ceramic_core::StreamId;
+use ceramic_core::{Cid, StreamId};
 use ceramic_kubo_rpc_server::{
     ApiNoContext, ContextWrapperExt, PubsubPubPostResponse, PubsubSubPostResponse,
 };
 use futures::StreamExt;
 use futures_util::FutureExt;
+use int_enum::IntEnum;
 use serde_json::json;
 use swagger::{AuthData, ContextBuilder, EmptyContext, Push, XSpanIdString};
 use tokio::task;
 
 use crate::{
-    message::{message_hash, MessageResponse},
-    pubsub::Message,
+    event::Event, kubo::message::MessageResponse, network::Network, EventsPublisher, StreamState,
 };
+
+use self::{message::message_hash, pubsub::Message};
 
 pub type ClientContext = swagger::make_context_ty!(
     ContextBuilder,
@@ -44,22 +48,12 @@ pub fn new(base_path: &str) -> Client {
 
 #[async_trait::async_trait]
 pub trait TipQueryer {
-    async fn query_last_tip(
-        &self,
-        store: Arc<Box<dyn store::Store>>,
-        network: String,
-        stream_id: &StreamId,
-    ) -> anyhow::Result<()>;
+    async fn query_last_tip(&self, network: Network, stream_id: &StreamId) -> anyhow::Result<()>;
 }
 
 #[async_trait::async_trait]
 impl TipQueryer for Client {
-    async fn query_last_tip(
-        &self,
-        store: Arc<Box<dyn store::Store>>,
-        network: String,
-        stream_id: &StreamId,
-    ) -> anyhow::Result<()> {
+    async fn query_last_tip(&self, network: Network, stream_id: &StreamId) -> anyhow::Result<()> {
         let stream_id_str = stream_id.to_string();
         let id = message_hash(1, stream_id_str.to_string())?;
         let msg = json!({
@@ -68,14 +62,14 @@ impl TipQueryer for Client {
             "stream": stream_id_str,
         });
         let file = serde_json::to_vec(&msg)?;
-        let topic = multibase::encode(multibase::Base::Base64Url, network);
+        let topic = network.kubo_topic();
         let res = self
             .pubsub_pub_post(topic.clone(), swagger::ByteArray(file))
             .await?;
         if let PubsubPubPostResponse::BadRequest(resp) = res {
             anyhow::bail!(resp.message);
         }
-        store.add(id, stream_id).await
+        Ok(())
     }
 }
 
@@ -95,10 +89,10 @@ pub trait MessageSubscriber {
             Message::Response { id, tips } => {
                 if store.exists(Some(id.clone()), None).await.unwrap_or(true) {
                     for (stream_id, tip) in tips {
-                        if let Err(err) = store
+                        let push = store
                             .push(Some(id.clone()), Some(stream_id.parse()?), tip.parse()?)
-                            .await
-                        {
+                            .await;
+                        if let Err(err) = push {
                             log::error!("store push error: {}", err)
                         }
                     }
@@ -159,5 +153,59 @@ impl MessageSubscriber for Client {
             return Ok(());
         }
         anyhow::bail!("subscribe failed")
+    }
+}
+
+#[async_trait::async_trait]
+pub trait UpdatePublisher {
+    async fn publish_update(
+        &self,
+        network: Network,
+        stream_id: &StreamId,
+        tip: &Cid,
+        model: &StreamId,
+    ) -> anyhow::Result<()>;
+}
+
+#[async_trait::async_trait]
+impl UpdatePublisher for Client {
+    async fn publish_update(
+        &self,
+        network: Network,
+        stream_id: &StreamId,
+        tip: &Cid,
+        model: &StreamId,
+    ) -> anyhow::Result<()> {
+        let msg = json!({
+            "typ": 0,
+            "stream": stream_id.to_string(),
+            "tip": tip.to_string(),
+            "model": model.to_string(),
+        });
+        let file = serde_json::to_vec(&msg)?;
+        let res = self
+            .pubsub_pub_post(network.kubo_topic(), swagger::ByteArray(file))
+            .await?;
+        if let PubsubPubPostResponse::BadRequest(resp) = res {
+            anyhow::bail!(resp.message);
+        }
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl EventsPublisher for Client {
+    async fn publish_events(
+        &self,
+        network: Network,
+        stream_id: &StreamId,
+        commits: Vec<Event>,
+    ) -> anyhow::Result<()> {
+        let state = StreamState::new(stream_id.r#type.int_value(), commits.clone())?;
+        let tip = commits.last().expect("commits is empty").cid.clone();
+        let model = state.model()?;
+        self.publish_update(network, stream_id, &tip, &model)
+            .await?;
+        Ok(())
     }
 }

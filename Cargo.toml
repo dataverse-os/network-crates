@@ -21,6 +21,7 @@ chrono = { version = "0.4.30", features = ["serde"] }
 dataverse-ceramic = { path = "./ceramic" }
 dataverse-iroh-store = { path = "./iroh-store" }
 dataverse-core = { path = "./core" }
+dataverse-file-system = { path = "./file-system" }
 dapp-table-client = { path = "./dapp-table/client" }
 futures = "0.3.15"
 hex = "0.4.3"

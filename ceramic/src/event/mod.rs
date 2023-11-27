@@ -1,4 +1,5 @@
 mod anchor;
+mod cacao;
 pub mod commit;
 mod ipld;
 pub mod jws;
@@ -150,7 +151,7 @@ mod tests {
 
     use libipld::Ipld;
 
-    use crate::cacao::CACAO;
+    use crate::event::cacao::CACAO;
 
     use super::*;
 

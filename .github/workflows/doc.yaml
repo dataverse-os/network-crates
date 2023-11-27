@@ -1,4 +1,4 @@
-name: Build Test
+name: Generate Doc
 
 on:
   push:
@@ -10,11 +10,16 @@ on:
 
 jobs:
   build:
-    name: Build Test
+    name: Build cargo doc
     runs-on: ubuntu-latest
     env:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
+
+    permissions:
+      pages: write
+      id-token: write
+  
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -37,5 +42,24 @@ jobs:
           ipfs_version: ^0.24
           run_daemon: true
 
-      - name: Build cargo docs
-        run: cargo docs
+      - name: Install dependencies
+        run: apt install tree make -y
+
+      - name: Run cargo doc
+        run: make doc
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: target/doc
+
+  deploy:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v2

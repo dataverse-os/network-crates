@@ -12,3 +12,27 @@ pub trait Store: Sync + Send {
         tip: Cid,
     ) -> anyhow::Result<()>;
 }
+
+#[async_trait::async_trait]
+impl Store for () {
+    async fn add(&self, _id: String, _stream_id: &StreamId) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn exists(
+        &self,
+        _id: Option<String>,
+        _stream_id: Option<StreamId>,
+    ) -> anyhow::Result<bool> {
+        Ok(false)
+    }
+
+    async fn push(
+        &self,
+        _id: Option<String>,
+        _stream_id: Option<StreamId>,
+        _tip: Cid,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+}

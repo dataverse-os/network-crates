@@ -77,6 +77,10 @@ impl Network {
         }
     }
 
+    pub fn kubo_topic(&self) -> String {
+        multibase::encode(multibase::Base::Base64Url, self.pubsub_topic())
+    }
+
     pub fn pubsub_topic(&self) -> String {
         match self {
             Network::Mainnet => "/ceramic/mainnet".to_string(),

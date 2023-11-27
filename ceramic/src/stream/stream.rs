@@ -6,6 +6,8 @@ use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::event::Event;
+
 use super::commit_id::CommitId;
 use super::stream_id::StreamIdType;
 
@@ -71,6 +73,17 @@ pub struct AnchorProof {
 }
 
 impl StreamState {
+    pub fn new(r#type: u64, commits: Vec<Event>) -> anyhow::Result<Self> {
+        let mut state = StreamState {
+            r#type,
+            ..Default::default()
+        };
+        for ele in commits {
+            ele.apply_to(&mut state)?;
+        }
+        Ok(state)
+    }
+
     /// Get controllers for stream
     pub fn controllers(&self) -> Vec<String> {
         let mut controllers = vec![];

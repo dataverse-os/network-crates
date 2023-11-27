@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use ceramic_http_client::{FilterQuery, OperationFilter};
 use dataverse_ceramic::{StreamId, StreamState};
+use dataverse_core::stream::StreamOperator;
 
-use crate::{index_file::IndexFile, stream::StreamOperator};
+use super::index_file::IndexFile;
 
 #[async_trait::async_trait]
 pub trait StreamFileLoader: StreamOperator {
@@ -13,26 +14,6 @@ pub trait StreamFileLoader: StreamOperator {
         model_id: &StreamId,
         content_id: &String,
     ) -> anyhow::Result<(StreamState, IndexFile)>;
-}
-
-#[async_trait::async_trait]
-impl StreamFileLoader for dataverse_iroh_store::Client {
-    async fn load_index_file_by_content_id(
-        &self,
-        _ceramic: &String,
-        model_id: &StreamId,
-        content_id: &String,
-    ) -> anyhow::Result<(StreamState, IndexFile)> {
-        let streams = self.list_stream_states_in_model(&model_id).await?;
-        for ele in streams {
-            if let Ok(index_file) = serde_json::from_value::<IndexFile>(ele.content.clone()) {
-                if index_file.content_id == *content_id {
-                    return Ok((ele, index_file));
-                }
-            }
-        }
-        anyhow::bail!("index file not found")
-    }
 }
 
 #[async_trait::async_trait]

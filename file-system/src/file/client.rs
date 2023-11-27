@@ -3,10 +3,9 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use dataverse_ceramic::{StreamId, StreamState};
 use dataverse_core::store::dapp::ModelStore;
+use dataverse_core::stream::StreamOperator;
 
-use crate::index_file::IndexFile;
-use crate::stream::StreamOperator;
-
+use super::index_file::IndexFile;
 use super::FileModel;
 use super::{loader::StreamFileLoader, StreamFile};
 
@@ -14,20 +13,14 @@ trait StreamFileOperator: StreamFileLoader + StreamOperator + Send + Sync {}
 
 pub struct Client<'a> {
     model_store: &'a ModelStore,
-    loader: Arc<dyn StreamFileLoader + Send + Sync>,
+    loader: Box<Arc<dyn StreamFileLoader + Send + Sync>>,
 }
 
 impl Client<'_> {
-    pub fn new(loader: Option<Arc<dataverse_iroh_store::Client>>) -> Self {
-        match loader {
-            Some(iroh) => Self {
-                model_store: ModelStore::get_instance(),
-                loader: iroh,
-            },
-            None => Self {
-                model_store: ModelStore::get_instance(),
-                loader: Arc::new(()),
-            },
+    pub fn new(loader: Box<Arc<dyn StreamFileLoader + Send + Sync>>) -> Self {
+        Self {
+            model_store: ModelStore::get_instance(),
+            loader: loader,
         }
     }
 }

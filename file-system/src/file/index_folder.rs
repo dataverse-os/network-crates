@@ -3,10 +3,7 @@ use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    access_control::AccessControl, action_file::action_file::ActionType,
-    index_file::content_type::ContentType,
-};
+use super::{access_control::AccessControl, action_file::ActionType, content_type::ContentType};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

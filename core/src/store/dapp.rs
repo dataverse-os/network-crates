@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use ceramic_core::StreamId;
+use dataverse_ceramic::network::Chain;
 use once_cell::sync::Lazy;
 
 #[derive(Debug, Clone)]
@@ -11,7 +12,7 @@ pub struct Model {
     pub model_name: String,
     pub version: i32,
     pub indexed_on: String,
-    // pub chains: String,
+    pub chains: Vec<Chain>,
 }
 
 static MODEL_STORE: Lazy<ModelStore> = Lazy::new(ModelStore::new);
@@ -47,9 +48,13 @@ impl ModelStore {
             .client
             .lookup_dapp_by_dapp_id(&dapp_id.to_string())
             .await?;
+        let ceramic = dataverse_ceramic::http::Client::init(&dapp.ceramic)?;
+        let chains = ceramic.chains().await?;
+
         let mut models = vec![];
         for model in dapp.models {
             let stream = model.streams.last().expect("get length 0 of model streams");
+
             models.push(Model {
                 model_id: stream.model_id.parse()?,
                 app_id: dapp.id.parse()?,
@@ -57,6 +62,7 @@ impl ModelStore {
                 model_name: model.model_name,
                 version: model.streams.len() as i32,
                 indexed_on: dapp.ceramic.clone(),
+                chains: chains.clone(),
             });
         }
         Ok(models)
@@ -76,6 +82,9 @@ impl ModelStore {
             .client
             .lookup_dapp_by_dapp_id(&dapp_id.to_string())
             .await?;
+        let ceramic = dataverse_ceramic::http::Client::init(&dapp.ceramic)?;
+        let chains = ceramic.chains().await?;
+
         for model in dapp.models {
             if model.model_name == model_name {
                 let stream = model.streams.last().expect("get length 0 of model streams");
@@ -86,6 +95,7 @@ impl ModelStore {
                     model_name: model.model_name,
                     version: model.streams.len() as i32,
                     indexed_on: dapp.ceramic.clone(),
+                    chains: chains.clone(),
                 });
             }
         }
@@ -127,6 +137,8 @@ impl ModelStore {
             model_id: Some(model_id.to_string()),
         };
         let dapp = self.client.lookup_dapp(variables).await?;
+        let ceramic = dataverse_ceramic::http::Client::init(&dapp.ceramic)?;
+        let chains = ceramic.chains().await?;
 
         for model in dapp.models {
             for (idx, ele) in model.streams.iter().enumerate() {
@@ -138,6 +150,7 @@ impl ModelStore {
                         model_name: model.model_name,
                         version: idx as i32,
                         indexed_on: dapp.ceramic,
+                        chains: chains.clone(),
                     });
                 }
             }

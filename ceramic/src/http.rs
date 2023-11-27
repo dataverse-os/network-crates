@@ -2,14 +2,17 @@ use anyhow::{Context, Result};
 use ceramic_core::{Base64UrlString, StreamId};
 use ceramic_event::{DidDocument, JwkSigner};
 use ceramic_http_client::remote::CeramicRemoteHttpClient;
+use int_enum::IntEnum;
 use json_patch::{patch, Patch};
 use ssi::jwk::Algorithm;
 
 use crate::{
+    commit::{Data, Genesis},
     did::generate_did_str,
     event::Event,
     network::{Chain, Network},
     stream::StreamState,
+    EventsLoader, EventsPublisher, LogType,
 };
 
 pub struct Client {
@@ -24,6 +27,15 @@ impl Client {
         })
     }
 
+    pub async fn chains(&self) -> anyhow::Result<Vec<Chain>> {
+        let chains = self.ceramic.chains().await?.supported_chains;
+        let chains = chains
+            .iter()
+            .map(|ele| ele.parse())
+            .collect::<Result<Vec<Chain>, _>>()?;
+        Ok(chains)
+    }
+
     pub async fn networks(&self) -> anyhow::Result<Network> {
         let chains = self.ceramic.chains().await?.supported_chains;
         let chain = chains
@@ -32,14 +44,59 @@ impl Client {
             .parse::<Chain>()?;
         Ok(chain.network())
     }
+}
 
-    pub async fn load_commits(&self, stream_id: &StreamId) -> anyhow::Result<Vec<Event>> {
+#[async_trait::async_trait]
+impl EventsLoader for Client {
+    async fn load_events(&self, stream_id: &StreamId) -> anyhow::Result<Vec<Event>> {
         let commits = self.ceramic.commits(stream_id).await?.commits;
         let mut events = vec![];
         for commit in commits {
             events.push(commit.try_into()?)
         }
         Ok(events)
+    }
+}
+
+#[async_trait::async_trait]
+impl EventsPublisher for Client {
+    async fn publish_events(
+        &self,
+        _network: Network,
+        stream_id: &StreamId,
+        commits: Vec<Event>,
+    ) -> anyhow::Result<()> {
+        let client = reqwest::Client::new();
+        for ele in &commits {
+            match ele.log_type() {
+                LogType::Genesis => {
+                    let url = self.ceramic.url_for_path("/api/v0/streams")?;
+                    let genesis = Genesis {
+                        r#type: stream_id.r#type.int_value(),
+                        genesis: ele.clone().try_into()?,
+                        opts: serde_json::Value::Null,
+                    };
+                    match client.post(url.as_str()).json(&genesis).send().await {
+                        Ok(res) => log::debug!("publish genesis {:?}", res),
+                        Err(err) => log::error!("publish genesis {}", err),
+                    };
+                }
+                LogType::Signed => {
+                    let url = self.ceramic.url_for_path("/api/v0/commits")?;
+                    let signed = Data {
+                        stream_id: stream_id.clone(),
+                        commit: ele.clone().try_into()?,
+                        opts: serde_json::Value::Null,
+                    };
+                    match client.post(url.as_str()).json(&signed).send().await {
+                        Ok(res) => log::debug!("publish signed {:?}", res),
+                        Err(err) => log::error!("publish signed {}", err),
+                    };
+                }
+                _ => anyhow::bail!("invalid log type"),
+            };
+        }
+        Ok(())
     }
 }
 
@@ -98,6 +155,7 @@ mod tests {
     use super::*;
 
     use ceramic_core::StreamId;
+    use int_enum::IntEnum;
     use serde_json::{from_value, json};
     use std::str::FromStr;
 
@@ -145,7 +203,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_load_events() {
+    async fn load_events() {
         let client = Client::init("https://dataverseceramicdaemon.com");
         assert!(client.is_ok());
         let client = client.unwrap();
@@ -154,21 +212,9 @@ mod tests {
             StreamId::from_str("kjzl6kcym7w8y5pj1xs5iotnbplg7x4hgoohzusuvk8s7oih3h2fuplcvwvu2wx")
                 .unwrap();
         let events = client.load_events(&stream_id).await;
-        println!("{:?}", events);
         assert!(events.is_ok());
-    }
 
-    #[tokio::test]
-    async fn test_load_stream() {
-        let client = Client::init("https://dataverseceramicdaemon.com");
-        assert!(client.is_ok());
-        let client = client.unwrap();
-
-        let stream_id =
-            StreamId::from_str("kjzl6kcym7w8y5pj1xs5iotnbplg7x4hgoohzusuvk8s7oih3h2fuplcvwvu2wx")
-                .unwrap();
-        let stream = client.load_stream(&stream_id).await;
-        println!("{:?}", stream);
+        let stream = StreamState::new(stream_id.r#type.int_value(), events.unwrap());
         assert!(stream.is_ok());
 
         let stream_from_ceramic = client.ceramic.get(&stream_id).await;

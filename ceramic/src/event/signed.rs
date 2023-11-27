@@ -7,8 +7,7 @@ use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid, json::DagJsonCodec, Ipld};
 use serde::{Deserialize, Serialize};
 
-use crate::cacao::CACAO;
-
+use super::cacao::CACAO;
 use super::ipld::{IpldAs, IpldDecodeFrom};
 use super::StreamStateApplyer;
 
