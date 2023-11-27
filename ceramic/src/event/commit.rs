@@ -1,12 +1,13 @@
 use std::str::FromStr;
 
-use super::event::{self, EventValue};
-use super::jws::ToCid;
 use anyhow::{Context, Ok};
 use ceramic_core::{Base64String, Jws, StreamId};
 use ceramic_core::{Cid, StreamIdType};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
+
+use super::jws::ToCid;
+use super::{Event, EventValue, Payload, SignedValue};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Genesis {
@@ -46,11 +47,11 @@ pub struct Content {
     pub cacao_block: Base64String,
 }
 
-impl TryInto<event::SignedValue> for Content {
+impl TryInto<SignedValue> for Content {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<event::SignedValue, Self::Error> {
-        Ok(event::SignedValue {
+    fn try_into(self) -> Result<SignedValue, Self::Error> {
+        Ok(SignedValue {
             jws: self.jws,
             linked_block: Some(self.linked_block.to_vec()?),
             cacao_block: Some(self.cacao_block.to_vec()?),
@@ -58,21 +59,21 @@ impl TryInto<event::SignedValue> for Content {
     }
 }
 
-impl TryInto<event::Event> for Content {
+impl TryInto<Event> for Content {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<event::Event, Self::Error> {
-        Ok(event::Event {
+    fn try_into(self) -> Result<Event, Self::Error> {
+        Ok(Event {
             cid: self.jws.cid()?,
             value: EventValue::Signed(self.try_into()?),
         })
     }
 }
 
-impl TryFrom<event::Event> for Content {
+impl TryFrom<Event> for Content {
     type Error = anyhow::Error;
 
-    fn try_from(value: event::Event) -> Result<Self, Self::Error> {
+    fn try_from(value: Event) -> Result<Self, Self::Error> {
         if let EventValue::Signed(signed) = value.value {
             return Ok(Content {
                 jws: signed.jws,
@@ -85,8 +86,8 @@ impl TryFrom<event::Event> for Content {
 }
 
 impl Content {
-    pub fn payload(&self) -> anyhow::Result<event::Payload> {
-        event::Payload::try_from(self.linked_block.to_vec()?)
+    pub fn payload(&self) -> anyhow::Result<Payload> {
+        Payload::try_from(self.linked_block.to_vec()?)
     }
 
     pub fn cid(&self) -> anyhow::Result<Cid> {

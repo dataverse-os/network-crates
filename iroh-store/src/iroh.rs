@@ -1,16 +1,16 @@
 use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Context;
-use ceramic_core::Cid;
+use ceramic_core::{Cid, StreamId};
+use ceramic_kubo_rpc_server::models;
 use ceramic_kubo_rpc_server::models::Codecs::{DagCbor, DagJose};
-use ceramic_kubo_rpc_server::models::{self};
 use ceramic_kubo_rpc_server::BlockGetPostResponse;
 use chrono::{DateTime, Utc};
 use dataverse_ceramic::commit::{Content, Data, Genesis};
+use dataverse_ceramic::event::jws::ToCid;
 use dataverse_ceramic::event::{self, VerifyOption};
-use dataverse_ceramic::jws::ToCid;
 use dataverse_ceramic::kubo;
-use dataverse_types::ceramic::{StreamId, StreamState};
+use dataverse_ceramic::stream::StreamState;
 use futures::TryStreamExt;
 use iroh::client::mem::{Doc, Iroh};
 pub use iroh::net::key::SecretKey;
@@ -374,6 +374,7 @@ impl Client {
 pub struct Stream {
     pub r#type: u64,
     pub dapp_id: uuid::Uuid,
+    // pub network: String,
     pub expiration_time: Option<DateTime<Utc>>,
     pub genesis: Cid,
     pub tip: Cid,

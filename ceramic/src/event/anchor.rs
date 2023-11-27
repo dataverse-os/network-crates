@@ -1,7 +1,8 @@
-use dataverse_types::ceramic::StreamState;
 use libipld::cid::Cid;
 use libipld::{cbor::DagCborCodec, codec::Codec};
 use serde::{Deserialize, Serialize};
+
+use crate::stream::StreamState;
 
 use super::StreamStateApplyer;
 
@@ -41,9 +42,9 @@ pub struct AnchorProof {
     pub tx_type: Option<String>,
 }
 
-impl Into<dataverse_types::ceramic::AnchorProof> for AnchorProof {
-    fn into(self) -> dataverse_types::ceramic::AnchorProof {
-        dataverse_types::ceramic::AnchorProof {
+impl Into<crate::stream::AnchorProof> for AnchorProof {
+    fn into(self) -> crate::stream::AnchorProof {
+        crate::stream::AnchorProof {
             chain_id: self.chain_id,
             root: self.root.to_bytes().into(),
             tx_hash: self.tx_hash.to_bytes().into(),

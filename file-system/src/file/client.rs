@@ -1,8 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use dataverse_types::ceramic::{StreamId, StreamState};
-use dataverse_types::store::dapp::ModelStore;
+use dataverse_ceramic::{StreamId, StreamState};
+use dataverse_core::store::dapp::ModelStore;
 
 use crate::index_file::IndexFile;
 use crate::stream::StreamOperator;
@@ -37,7 +37,7 @@ impl Client<'_> {
         &self,
         app_id: &uuid::Uuid,
         model: FileModel,
-    ) -> anyhow::Result<dataverse_types::store::dapp::Model> {
+    ) -> anyhow::Result<dataverse_core::store::dapp::Model> {
         self.model_store
             .get_model_by_name(&app_id, &model.to_string())
             .await

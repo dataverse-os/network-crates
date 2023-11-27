@@ -1,6 +1,6 @@
+use crate::stream::StreamState;
 use anyhow::Result;
 use ceramic_core::{Base64String, StreamId};
-use dataverse_types::ceramic::StreamState;
 use json_patch::Patch;
 use libipld::multihash::{Code, MultihashDigest};
 use libipld::prelude::Codec;

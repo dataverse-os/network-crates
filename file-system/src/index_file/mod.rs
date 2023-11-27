@@ -9,8 +9,8 @@ use std::str::FromStr;
 use crate::policy::Policy;
 use anyhow::Result;
 use async_std::task;
-use dataverse_types::ceramic::{self, StreamId};
-use dataverse_types::store::{dapp::ModelStore, stream::StreamStore};
+use dataverse_ceramic::{self as ceramic, StreamId};
+use dataverse_core::store::{dapp::ModelStore, stream::StreamStore};
 use serde_json::Value;
 
 use self::content_type::*;

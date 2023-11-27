@@ -1,12 +1,16 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ceramic_core::{Base64UrlString, StreamId};
 use ceramic_event::{DidDocument, JwkSigner};
 use ceramic_http_client::remote::CeramicRemoteHttpClient;
-use dataverse_types::ceramic::StreamState;
 use json_patch::{patch, Patch};
 use ssi::jwk::Algorithm;
 
-use crate::{did::generate_did_str, event::Event};
+use crate::{
+    did::generate_did_str,
+    event::Event,
+    network::{Chain, Network},
+    stream::StreamState,
+};
 
 pub struct Client {
     pub ceramic: CeramicRemoteHttpClient<NullSigner>,
@@ -18,6 +22,15 @@ impl Client {
         Ok(Self {
             ceramic: CeramicRemoteHttpClient::new(NullSigner::new(), ceramic_url),
         })
+    }
+
+    pub async fn networks(&self) -> anyhow::Result<Network> {
+        let chains = self.ceramic.chains().await?.supported_chains;
+        let chain = chains
+            .first()
+            .context("ceramic not in networks")?
+            .parse::<Chain>()?;
+        Ok(chain.network())
     }
 
     pub async fn load_commits(&self, stream_id: &StreamId) -> anyhow::Result<Vec<Event>> {
@@ -84,7 +97,7 @@ mod tests {
 
     use super::*;
 
-    use dataverse_types::ceramic::StreamId;
+    use ceramic_core::StreamId;
     use serde_json::{from_value, json};
     use std::str::FromStr;
 

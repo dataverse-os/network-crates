@@ -1,4 +1,12 @@
-use dataverse_types::ceramic::{LogType, StreamId, StreamState};
+mod commit_id;
+mod patch;
+mod stream;
+mod stream_id;
+
+pub use stream::*;
+pub use stream_id::*;
+
+use ceramic_core::StreamId;
 use int_enum::IntEnum;
 
 use crate::{
@@ -35,13 +43,19 @@ impl EventsLoader for super::http::Client {
 
 #[async_trait::async_trait]
 pub trait EventsPublisher: Sync + Send {
-    async fn publish_events(&self, stream_id: &StreamId, events: Vec<Event>) -> anyhow::Result<()>;
+    async fn publish_events(
+        &self,
+        network: String,
+        stream_id: &StreamId,
+        events: Vec<Event>,
+    ) -> anyhow::Result<()>;
 }
 
 #[async_trait::async_trait]
 impl EventsPublisher for super::http::Client {
     async fn publish_events(
         &self,
+        _network: String,
         stream_id: &StreamId,
         commits: Vec<Event>,
     ) -> anyhow::Result<()> {

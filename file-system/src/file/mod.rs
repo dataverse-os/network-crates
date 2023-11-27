@@ -5,7 +5,7 @@ use std::fmt::Display;
 
 use anyhow::Context;
 pub use client::*;
-use dataverse_types::ceramic::StreamState;
+use dataverse_ceramic::StreamState;
 pub use loader::*;
 
 use ceramic_core::StreamId;
@@ -97,8 +97,13 @@ pub enum FileModel {
 
 impl Display for FileModel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let serialized = serde_json::to_string(self).map_err(|_| std::fmt::Error)?;
-        write!(f, "{}", serialized)
+        let str = match self {
+            FileModel::IndexFile => "indexFile",
+            FileModel::ActionFile => "actionFile",
+            FileModel::IndexFolder => "indexFolder",
+            FileModel::ContentFolder => "contentFolder",
+        };
+        write!(f, "{}", str)
     }
 }
 
@@ -107,8 +112,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_stream_file() -> anyhow::Result<()> {
-        println!("{}", FileModel::IndexFile);
+    fn file_model() -> anyhow::Result<()> {
+        assert_eq!(FileModel::IndexFile.to_string(), "indexFile".to_string());
         Ok(())
     }
 }

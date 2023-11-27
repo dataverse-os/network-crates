@@ -1,21 +1,22 @@
 mod anchor;
+pub mod commit;
 mod ipld;
+pub mod jws;
 mod signed;
 mod verify;
 
+use crate::stream::{LogType, StreamState};
 use anyhow::Result;
 use ceramic_http_client::api::StateLog;
-use dataverse_types::ceramic::{LogType, StreamState};
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid};
 use serde::{Deserialize, Serialize};
 
 pub use self::anchor::*;
 pub use self::ipld::*;
+use self::jws::ToCid;
 pub use self::signed::*;
 pub use self::verify::*;
-
-use super::jws::ToCid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {

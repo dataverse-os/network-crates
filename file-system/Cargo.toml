@@ -18,7 +18,7 @@ dag-jose = "0.1.2"
 dapp-table-client = { workspace = true }
 dataverse-ceramic = { workspace = true }
 dataverse-iroh-store = { workspace = true }
-dataverse-types = { workspace = true }
+dataverse-core = { workspace = true }
 diesel = { version = "2.1.1", features = ["postgres", "chrono", "uuid", "r2d2", "serde_json", "postgres_backend"] }
 int-enum = { version = "0.5.0" }
 json-patch = { workspace = true }

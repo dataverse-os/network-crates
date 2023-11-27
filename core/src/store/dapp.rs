@@ -11,6 +11,7 @@ pub struct Model {
     pub model_name: String,
     pub version: i32,
     pub indexed_on: String,
+    // pub chains: String,
 }
 
 static MODEL_STORE: Lazy<ModelStore> = Lazy::new(ModelStore::new);

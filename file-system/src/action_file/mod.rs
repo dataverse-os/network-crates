@@ -1,4 +1,5 @@
-use dataverse_types::{ceramic::StreamId, store::dapp::ModelStore};
+use ceramic_core::StreamId;
+use dataverse_core::store::dapp::ModelStore;
 
 use crate::policy::Policy;
 
@@ -12,7 +13,7 @@ struct ActionFileProcessor {
 impl Policy for ActionFileProcessor {
     async fn effect_at(
         &self,
-        state: &dataverse_types::ceramic::StreamState,
+        state: &dataverse_ceramic::stream::StreamState,
     ) -> anyhow::Result<bool> {
         // check model_name is indexfile
         let model_id = state.model()?;

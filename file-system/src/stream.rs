@@ -1,10 +1,7 @@
 use anyhow::Context;
-use dataverse_ceramic::stream::EventsPublisher;
+use dataverse_ceramic::{EventsPublisher, StreamId, StreamState};
+use dataverse_core::store::dapp::ModelStore;
 use dataverse_iroh_store::Stream;
-use dataverse_types::{
-    ceramic::{StreamId, StreamState},
-    store::dapp::ModelStore,
-};
 
 pub trait StreamOperator: StreamLoader + StreamPublisher {}
 
@@ -172,9 +169,9 @@ impl StreamPublisher for dataverse_iroh_store::Client {
         let events = self.load_commits(&stream.tip).await?;
         let ceramic = dataverse_ceramic::http::Client::init(&ceramic)?;
         stream.published = events.len();
-        ceramic.publish_events(&stream_id, events).await?;
-
-        // self.save_stream(&stream).await?;
+        ceramic
+            .publish_events("".to_string(), &stream_id, events)
+            .await?;
         Ok(())
     }
 }

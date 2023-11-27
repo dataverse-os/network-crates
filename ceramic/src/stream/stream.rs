@@ -138,7 +138,7 @@ impl Default for StreamState {
 mod tests {
     use serde_json::json;
 
-    use crate::ceramic::stream::StreamState;
+    use crate::stream::StreamState;
 
     use super::*;
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ceramic::StreamState;
+use dataverse_ceramic::stream::StreamState;
 
 use ceramic_core::StreamId;
 use once_cell::sync::Lazy;

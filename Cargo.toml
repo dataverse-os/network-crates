@@ -2,10 +2,10 @@
 resolver = "2"
 members = [
   "ceramic",
+  "core",
   "dapp-table/client",
   "file-system",
-  "iroh-store",
-  "types"
+  "iroh-store"
 ]
 
 [workspace.dependencies]
@@ -20,7 +20,7 @@ ceramic-kubo-rpc-server = { git = "https://github.com/ceramicnetwork/rust-cerami
 chrono = { version = "0.4.30", features = ["serde"] }
 dataverse-ceramic = { path = "./ceramic" }
 dataverse-iroh-store = { path = "./iroh-store" }
-dataverse-types = { path = "./types" }
+dataverse-core = { path = "./core" }
 dapp-table-client = { path = "./dapp-table/client" }
 futures = "0.3.15"
 hex = "0.4.3"
