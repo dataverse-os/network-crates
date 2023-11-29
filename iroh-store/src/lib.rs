@@ -271,7 +271,7 @@ impl StreamLoader for Client {
 
 #[cfg(test)]
 mod tests {
-    use dataverse_ceramic::{event::Event, network::Network, StreamsLoader};
+    use dataverse_ceramic::event::Event;
 
     use super::*;
 
@@ -338,14 +338,8 @@ mod tests {
         let update_at_mod = state.content["updatedAt"].clone();
         assert_ne!(update_at, update_at_mod);
 
-        let ceramic = Ceramic {
-            endpoint: "".into(),
-            network: Network::InMemory,
-        };
         // list stream state in model
-        let streams = client
-            .load_stream_states(&ceramic, None, &state.model()?)
-            .await;
+        let streams = client.list_stream_in_model(&state.model()?).await;
         assert!(streams.is_ok());
         assert_eq!(streams.unwrap().len(), 1);
         Ok(())
