@@ -1,9 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use dataverse_ceramic::{StreamId, StreamState};
+use dataverse_ceramic::{Ceramic, StreamId, StreamOperator, StreamState};
 use dataverse_core::store::dapp::ModelStore;
-use dataverse_core::stream::StreamOperator;
 
 use super::index_file::IndexFile;
 use super::FileModel;
@@ -36,12 +35,15 @@ impl Client<'_> {
             .await
     }
 
-    pub async fn get_dapp_ceramic(&self, app_id: &uuid::Uuid) -> anyhow::Result<String> {
-        Ok(self
+    pub async fn get_dapp_ceramic(&self, app_id: &uuid::Uuid) -> anyhow::Result<Ceramic> {
+        let model = self
             .model_store
             .get_model_by_name(&app_id, &FileModel::IndexFile.to_string())
-            .await?
-            .indexed_on)
+            .await?;
+        Ok(Ceramic {
+            endpoint: model.clone().indexed_on,
+            network: model.network()?,
+        })
     }
 
     pub async fn load_stream_by_app_id(
@@ -50,17 +52,18 @@ impl Client<'_> {
         stream_id: &StreamId,
     ) -> anyhow::Result<StreamState> {
         let ceramic = self.get_dapp_ceramic(app_id).await?;
-        self.loader.load_stream(&ceramic, stream_id).await
+
+        self.loader.load_stream(&ceramic, stream_id, None).await
     }
 
     pub async fn load_streams_auto_model(
         &self,
-        account: &Option<String>,
+        account: Option<String>,
         model_id: &StreamId,
     ) -> anyhow::Result<Vec<StreamState>> {
         let model = self.model_store.get_model(model_id).await?;
         self.loader
-            .load_streams(account, &model.indexed_on, model_id)
+            .load_streams(&model.ceramic()?, account, model_id)
             .await
     }
 }
@@ -73,7 +76,7 @@ pub trait StreamFileTrait {
 
     async fn load_files(
         &self,
-        account: &Option<String>,
+        account: Option<String>,
         model_id: &StreamId,
     ) -> anyhow::Result<Vec<StreamFile>>;
 }
@@ -82,14 +85,15 @@ pub trait StreamFileTrait {
 impl StreamFileTrait for Client<'_> {
     async fn load_file(&self, dapp_id: &uuid::Uuid, stream_id: &StreamId) -> Result<StreamFile> {
         let ceramic = self.get_dapp_ceramic(dapp_id).await?;
-        let stream_state = self.loader.load_stream(&ceramic, &stream_id).await?;
+        let stream_state = self.loader.load_stream(&ceramic, &stream_id, None).await?;
         let model = self.model_store.get_model(&stream_state.model()?).await?;
         match model.model_name.as_str() {
             "indexFile" => {
                 let index_file = serde_json::from_value::<IndexFile>(stream_state.content.clone())?;
                 let mut file = StreamFile::new_with_file(stream_state)?;
                 if let Ok(content_id) = &index_file.content_id.parse() {
-                    let content_state = self.loader.load_stream(&ceramic, &content_id).await?;
+                    let content_state =
+                        self.loader.load_stream(&ceramic, &content_id, None).await?;
                     file.write_content(content_state)?;
                 }
                 Ok(file)
@@ -127,23 +131,22 @@ impl StreamFileTrait for Client<'_> {
         stream_id: &StreamId,
     ) -> anyhow::Result<StreamState> {
         let model_index_file = self.get_file_model(&app_id, FileModel::IndexFile).await?;
-        self.loader
-            .load_stream(&model_index_file.indexed_on, stream_id)
-            .await
+        let ceramic = &model_index_file.ceramic()?;
+        self.loader.load_stream(ceramic, stream_id, None).await
     }
 
     async fn load_files(
         &self,
-        account: &Option<String>,
+        account: Option<String>,
         model_id: &StreamId,
     ) -> Result<Vec<StreamFile>> {
         let model = self.model_store.get_model(&model_id).await?;
         let app_id = model.app_id;
-        let ceramic = model.indexed_on;
+        let ceramic = model.ceramic()?;
 
         let stream_states = self
             .loader
-            .load_streams(account, &ceramic, &model_id)
+            .load_streams(&ceramic, account.clone(), &model_id)
             .await?;
 
         match model.model_name.as_str() {
@@ -155,7 +158,8 @@ impl StreamFileTrait for Client<'_> {
                     file.content_id = Some(index_file.content_id.clone());
 
                     if let Ok(stream_id) = &index_file.content_id.parse() {
-                        let content_state = self.loader.load_stream(&ceramic, stream_id).await?;
+                        let content_state =
+                            self.loader.load_stream(&ceramic, stream_id, None).await?;
                         file.write_content(content_state)?;
                     }
                     files.push(file);
@@ -176,11 +180,7 @@ impl StreamFileTrait for Client<'_> {
 
                 let file_query_edges = self
                     .loader
-                    .load_streams(
-                        &account,
-                        &model_index_file.indexed_on,
-                        &model_index_file.model_id,
-                    )
+                    .load_streams(&ceramic, account, &model_index_file.model_id)
                     .await?;
 
                 let mut file_map: HashMap<String, StreamFile> = HashMap::new();

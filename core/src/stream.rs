@@ -1,18 +1,7 @@
-mod loader;
-mod publisher;
-
-pub use loader::*;
-pub use publisher::*;
-
 use ceramic_core::{Cid, StreamId};
 use chrono::{DateTime, Utc};
 use dataverse_ceramic::event;
 use serde::{Deserialize, Serialize};
-
-pub trait StreamOperator: StreamLoader + StreamPublisher {}
-
-#[async_trait::async_trait]
-impl StreamOperator for () {}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stream {

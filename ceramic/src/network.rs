@@ -111,8 +111,8 @@ mod tests {
     #[tokio::test]
     async fn network() -> anyhow::Result<()> {
         let ceramic = "https://dataverseceramicdaemon.com";
-        let client = crate::http::Client::init(ceramic)?;
-        let chains = client.ceramic.chains().await?;
+        let http_client = crate::http::Client::init(ceramic)?;
+        let chains = http_client.chains().await?;
         assert_eq!(chains.supported_chains, vec!["eip155:1"]);
         let chain = chains.supported_chains[0].parse::<Chain>();
         assert!(chain.is_ok());

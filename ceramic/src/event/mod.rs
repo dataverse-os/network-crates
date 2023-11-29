@@ -1,10 +1,11 @@
-mod anchor;
-mod cacao;
+pub mod anchor;
+pub mod cacao;
 pub mod commit;
-mod ipld;
+pub mod ipld;
 pub mod jws;
-mod signed;
-mod verify;
+pub mod operator;
+pub mod signed;
+pub mod verify;
 
 use crate::stream::{LogType, StreamState};
 use anyhow::Result;
@@ -15,7 +16,8 @@ use serde::{Deserialize, Serialize};
 
 pub use self::anchor::*;
 pub use self::ipld::*;
-use self::jws::ToCid;
+pub use self::jws::ToCid;
+pub use self::operator::*;
 pub use self::signed::*;
 pub use self::verify::*;
 
@@ -281,5 +283,6 @@ mod tests {
         let node: Ipld = DagCborCodec.decode(&data).unwrap();
         let cacao = libipld::serde::from_ipld::<CACAO>(node);
         assert!(cacao.is_ok());
+        println!("{:?}", cacao.unwrap());
     }
 }

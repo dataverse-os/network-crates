@@ -1,12 +1,12 @@
 mod client;
 pub mod loader;
 
-mod access_control;
-mod action_file;
-mod content_folder;
-mod content_type;
-mod index_file;
-mod index_folder;
+pub mod access_control;
+pub mod action_file;
+pub mod content_folder;
+pub mod content_type;
+pub mod index_file;
+pub mod index_folder;
 
 pub use index_file::*;
 

@@ -6,7 +6,8 @@ use std::sync::Arc;
 
 use ceramic_core::{Cid, StreamId};
 use ceramic_kubo_rpc_server::{
-    ApiNoContext, ContextWrapperExt, PubsubPubPostResponse, PubsubSubPostResponse,
+    ApiNoContext, BlockGetPostResponse, ContextWrapperExt, PubsubPubPostResponse,
+    PubsubSubPostResponse,
 };
 use futures::StreamExt;
 use futures_util::FutureExt;
@@ -16,7 +17,10 @@ use swagger::{AuthData, ContextBuilder, EmptyContext, Push, XSpanIdString};
 use tokio::task;
 
 use crate::{
-    event::Event, kubo::message::MessageResponse, network::Network, EventsPublisher, StreamState,
+    event::{self, Event, EventsLoader, EventsPublisher},
+    kubo::message::MessageResponse,
+    network::Network,
+    Ceramic, StreamState,
 };
 
 use self::{message::message_hash, pubsub::Message};
@@ -44,6 +48,34 @@ pub fn new(base_path: &str) -> Client {
             .expect("Failed to create HTTP client"),
     );
     Box::new(client.with_context(context))
+}
+
+#[async_trait::async_trait]
+pub trait CidLoader {
+    async fn load_cid(&self, cid: &Cid) -> anyhow::Result<Vec<u8>>;
+}
+
+#[async_trait::async_trait]
+impl CidLoader for Client {
+    async fn load_cid(&self, cid: &Cid) -> anyhow::Result<Vec<u8>> {
+        let result;
+        let timeout = Some("1s".into());
+        let res = self.block_get_post(cid.to_string(), timeout, None).await?;
+
+        match res {
+            BlockGetPostResponse::Success(bytes) => {
+                result = bytes.to_vec();
+            }
+            BlockGetPostResponse::BadRequest(err) => {
+                anyhow::bail!("bad request: {:?}", err);
+            }
+            BlockGetPostResponse::InternalError(err) => {
+                anyhow::bail!("internal error: {:?}", err);
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 #[async_trait::async_trait]
@@ -160,7 +192,7 @@ impl MessageSubscriber for Client {
 pub trait UpdatePublisher {
     async fn publish_update(
         &self,
-        network: Network,
+        ceramic: &Ceramic,
         stream_id: &StreamId,
         tip: &Cid,
         model: &StreamId,
@@ -171,7 +203,7 @@ pub trait UpdatePublisher {
 impl UpdatePublisher for Client {
     async fn publish_update(
         &self,
-        network: Network,
+        ceramic: &Ceramic,
         stream_id: &StreamId,
         tip: &Cid,
         model: &StreamId,
@@ -184,7 +216,7 @@ impl UpdatePublisher for Client {
         });
         let file = serde_json::to_vec(&msg)?;
         let res = self
-            .pubsub_pub_post(network.kubo_topic(), swagger::ByteArray(file))
+            .pubsub_pub_post(ceramic.network.kubo_topic(), swagger::ByteArray(file))
             .await?;
         if let PubsubPubPostResponse::BadRequest(resp) = res {
             anyhow::bail!(resp.message);
@@ -197,15 +229,50 @@ impl UpdatePublisher for Client {
 impl EventsPublisher for Client {
     async fn publish_events(
         &self,
-        network: Network,
+        ceramic: &Ceramic,
         stream_id: &StreamId,
         commits: Vec<Event>,
     ) -> anyhow::Result<()> {
         let state = StreamState::new(stream_id.r#type.int_value(), commits.clone())?;
         let tip = commits.last().expect("commits is empty").cid.clone();
         let model = state.model()?;
-        self.publish_update(network, stream_id, &tip, &model)
+        self.publish_update(ceramic, stream_id, &tip, &model)
             .await?;
         Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl EventsLoader for Client {
+    async fn load_events(
+        &self,
+        _ceramic: &Ceramic,
+        _stream_id: &StreamId,
+        tip: Option<Cid>,
+    ) -> anyhow::Result<Vec<Event>> {
+        let mut commits = Vec::new();
+        let mut cid = match tip {
+            Some(tip) => tip,
+            None => todo!("query latest tip of stream"),
+        };
+        loop {
+            let bytes = self.load_cid(&cid).await?;
+            let mut commit = event::Event::decode(cid, bytes.to_vec())?;
+            match &mut commit.value {
+                event::EventValue::Signed(signed) => {
+                    signed.linked_block = Some(self.load_cid(&signed.payload_link()?).await?);
+                    signed.cacao_block = Some(self.load_cid(&signed.cap()?).await?);
+                }
+                event::EventValue::Anchor(anchor) => {
+                    anchor.proof_block = Some(self.load_cid(&anchor.proof).await?)
+                }
+            }
+            commits.insert(0, commit.clone());
+            match commit.prev()? {
+                Some(prev) => cid = prev,
+                None => break,
+            };
+        }
+        Ok(commits)
     }
 }

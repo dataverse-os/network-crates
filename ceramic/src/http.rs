@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
-use ceramic_core::{Base64UrlString, StreamId};
+use ceramic_core::{Base64UrlString, Cid, StreamId};
 use ceramic_event::{DidDocument, JwkSigner};
-use ceramic_http_client::remote::CeramicRemoteHttpClient;
+use ceramic_http_client::{remote::CeramicRemoteHttpClient, FilterQuery};
 use int_enum::IntEnum;
 use json_patch::{patch, Patch};
 use ssi::jwk::Algorithm;
@@ -9,26 +9,45 @@ use ssi::jwk::Algorithm;
 use crate::{
     commit::{Data, Genesis},
     did::generate_did_str,
-    event::Event,
+    event::{Event, EventsLoader, EventsPublisher},
     network::{Chain, Network},
     stream::StreamState,
-    EventsLoader, EventsPublisher, LogType,
+    Ceramic, LogType, StreamLoader, StreamOperator, StreamPublisher,
 };
 
-pub struct Client {
-    pub ceramic: CeramicRemoteHttpClient<NullSigner>,
-}
+pub struct Client {}
 
 impl Client {
-    pub fn init(ceramic: &str) -> anyhow::Result<Self> {
-        let ceramic_url = url::Url::parse(ceramic)?;
-        Ok(Self {
-            ceramic: CeramicRemoteHttpClient::new(NullSigner::new(), ceramic_url),
-        })
+    pub fn new() -> Self {
+        Self {}
     }
 
-    pub async fn chains(&self) -> anyhow::Result<Vec<Chain>> {
-        let chains = self.ceramic.chains().await?.supported_chains;
+    pub fn init(ceramic: &str) -> anyhow::Result<CeramicHTTPClient> {
+        let ceramic_url = url::Url::parse(ceramic)?;
+        Ok(CeramicRemoteHttpClient::new(NullSigner::new(), ceramic_url))
+    }
+
+    pub async fn query_model(
+        &self,
+        ceramic: &Ceramic,
+        account: Option<String>,
+        model_id: &StreamId,
+        query: Option<FilterQuery>,
+    ) -> anyhow::Result<Vec<StreamState>> {
+        let http_client = Self::init(&ceramic.endpoint)?;
+        let edges = http_client.query_all(account, model_id, query).await?;
+        let mut streams = Vec::new();
+        for edge in edges {
+            if let Some(node) = edge.node {
+                streams.push(node.try_into()?);
+            }
+        }
+        Ok(streams)
+    }
+
+    pub async fn chains(ceramic: &str) -> anyhow::Result<Vec<Chain>> {
+        let http_client = Self::init(ceramic)?;
+        let chains = http_client.chains().await?.supported_chains;
         let chains = chains
             .iter()
             .map(|ele| ele.parse())
@@ -36,8 +55,9 @@ impl Client {
         Ok(chains)
     }
 
-    pub async fn networks(&self) -> anyhow::Result<Network> {
-        let chains = self.ceramic.chains().await?.supported_chains;
+    pub async fn network(ceramic: &str) -> anyhow::Result<Network> {
+        let http_client = Self::init(ceramic)?;
+        let chains = http_client.chains().await?.supported_chains;
         let chain = chains
             .first()
             .context("ceramic not in networks")?
@@ -48,8 +68,14 @@ impl Client {
 
 #[async_trait::async_trait]
 impl EventsLoader for Client {
-    async fn load_events(&self, stream_id: &StreamId) -> anyhow::Result<Vec<Event>> {
-        let commits = self.ceramic.commits(stream_id).await?.commits;
+    async fn load_events(
+        &self,
+        ceramic: &Ceramic,
+        stream_id: &StreamId,
+        _tip: Option<Cid>,
+    ) -> anyhow::Result<Vec<Event>> {
+        let http_client = Self::init(&ceramic.endpoint)?;
+        let commits = http_client.commits(stream_id).await?.commits;
         let mut events = vec![];
         for commit in commits {
             events.push(commit.try_into()?)
@@ -62,15 +88,16 @@ impl EventsLoader for Client {
 impl EventsPublisher for Client {
     async fn publish_events(
         &self,
-        _network: Network,
+        ceramic: &Ceramic,
         stream_id: &StreamId,
         commits: Vec<Event>,
     ) -> anyhow::Result<()> {
+        let http_client = Self::init(&ceramic.endpoint)?;
         let client = reqwest::Client::new();
         for ele in &commits {
             match ele.log_type() {
                 LogType::Genesis => {
-                    let url = self.ceramic.url_for_path("/api/v0/streams")?;
+                    let url = http_client.url_for_path("/api/v0/streams")?;
                     let genesis = Genesis {
                         r#type: stream_id.r#type.int_value(),
                         genesis: ele.clone().try_into()?,
@@ -82,7 +109,7 @@ impl EventsPublisher for Client {
                     };
                 }
                 LogType::Signed => {
-                    let url = self.ceramic.url_for_path("/api/v0/commits")?;
+                    let url = http_client.url_for_path("/api/v0/commits")?;
                     let signed = Data {
                         stream_id: stream_id.clone(),
                         commit: ele.clone().try_into()?,
@@ -100,6 +127,36 @@ impl EventsPublisher for Client {
     }
 }
 
+#[async_trait::async_trait]
+impl StreamOperator for Client {}
+
+#[async_trait::async_trait]
+impl StreamPublisher for Client {}
+
+#[async_trait::async_trait]
+impl StreamLoader for Client {
+    async fn load_stream(
+        &self,
+        ceramic: &Ceramic,
+        stream_id: &StreamId,
+        _tip: Option<Cid>,
+    ) -> anyhow::Result<StreamState> {
+        let ceramic = Self::init(&ceramic.endpoint)?;
+        let stream = ceramic.get(stream_id).await?;
+        let state = stream.state.context("Failed to load stream")?.try_into()?;
+        Ok(state)
+    }
+
+    async fn load_streams(
+        &self,
+        ceramic: &Ceramic,
+        account: Option<String>,
+        model_id: &StreamId,
+    ) -> anyhow::Result<Vec<StreamState>> {
+        self.query_model(ceramic, account, model_id, None).await
+    }
+}
+
 pub async fn ceramic_client(ceramic: &str, pk: &str) -> Result<CeramicRemoteHttpClient<JwkSigner>> {
     let did = generate_did_str(pk)?;
     let did = DidDocument::new(&did);
@@ -109,10 +166,7 @@ pub async fn ceramic_client(ceramic: &str, pk: &str) -> Result<CeramicRemoteHttp
     Ok(CeramicRemoteHttpClient::new(signer, ceramic_url))
 }
 
-pub fn ceramic_client_nosinger(ceramic: &str) -> Result<CeramicRemoteHttpClient<NullSigner>> {
-    let ceramic_url = url::Url::parse(ceramic)?;
-    Ok(CeramicRemoteHttpClient::new(NullSigner::new(), ceramic_url))
-}
+type CeramicHTTPClient = CeramicRemoteHttpClient<NullSigner>;
 
 pub struct NullSigner;
 
@@ -137,7 +191,7 @@ impl ceramic_http_client::ceramic_event::Signer for NullSigner {
     }
 }
 
-trait StreamStateTrait {
+pub trait StreamStateTrait {
     fn apply_patch(&mut self, patches: Patch) -> Result<()>;
 }
 
@@ -150,8 +204,6 @@ impl StreamStateTrait for StreamState {
 
 #[cfg(test)]
 mod tests {
-    use crate::stream::EventsLoader;
-
     use super::*;
 
     use ceramic_core::StreamId;
@@ -204,20 +256,27 @@ mod tests {
 
     #[tokio::test]
     async fn load_events() {
-        let client = Client::init("https://dataverseceramicdaemon.com");
-        assert!(client.is_ok());
-        let client = client.unwrap();
+        let client = Client::new();
+        let ceramic = "https://dataverseceramicdaemon.com";
+        let http_client = Client::init(ceramic);
+        assert!(http_client.is_ok());
+        let http_client = http_client.unwrap();
+
+        let ceramic = Ceramic::new(ceramic).await;
+        assert!(ceramic.is_ok());
 
         let stream_id =
             StreamId::from_str("kjzl6kcym7w8y5pj1xs5iotnbplg7x4hgoohzusuvk8s7oih3h2fuplcvwvu2wx")
                 .unwrap();
-        let events = client.load_events(&stream_id).await;
+        let events = client
+            .load_events(&ceramic.unwrap(), &stream_id, None)
+            .await;
         assert!(events.is_ok());
 
         let stream = StreamState::new(stream_id.r#type.int_value(), events.unwrap());
         assert!(stream.is_ok());
 
-        let stream_from_ceramic = client.ceramic.get(&stream_id).await;
+        let stream_from_ceramic = http_client.get(&stream_id).await;
         assert!(stream_from_ceramic.is_ok());
 
         assert_eq!(

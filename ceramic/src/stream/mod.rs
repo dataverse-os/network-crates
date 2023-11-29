@@ -1,8 +1,8 @@
-mod commit_id;
+pub mod commit_id;
 pub mod operator;
-mod patch;
-mod stream;
-mod stream_id;
+pub mod patch;
+pub mod stream;
+pub mod stream_id;
 
 pub use operator::*;
 pub use stream::*;

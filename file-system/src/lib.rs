@@ -1,5 +1,5 @@
 mod error;
 pub mod file;
-mod policy;
-mod schema;
-mod task;
+pub mod policy;
+pub mod schema;
+pub mod task;

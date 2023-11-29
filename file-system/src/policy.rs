@@ -1,6 +1,8 @@
 use async_trait::async_trait;
+use ceramic::event::EventsLoader;
+use ceramic::Ceramic;
 use dataverse_ceramic as ceramic;
-use dataverse_ceramic::{event::EventValue, stream::EventsLoader, StreamId, StreamState};
+use dataverse_ceramic::{event::EventValue, StreamId, StreamState};
 use int_enum::IntEnum;
 use json_patch::{Patch, PatchOperation};
 use serde_json::Value;
@@ -37,6 +39,7 @@ pub trait Policy: Send + Sync {
 trait PolicyStreamLoader {
     async fn load_stream_with_policies(
         &self,
+        ceramic: &Ceramic,
         stream_id: &StreamId,
         policies: Vec<Box<dyn Policy>>,
     ) -> anyhow::Result<ceramic::StreamState>;
@@ -46,10 +49,11 @@ trait PolicyStreamLoader {
 impl<T: EventsLoader + Sync> PolicyStreamLoader for T {
     async fn load_stream_with_policies(
         &self,
+        ceramic: &Ceramic,
         stream_id: &StreamId,
         policies: Vec<Box<dyn Policy>>,
     ) -> anyhow::Result<ceramic::StreamState> {
-        let events = self.load_events(stream_id).await?;
+        let events = self.load_events(ceramic, stream_id, None).await?;
 
         let mut stream_state: StreamState = StreamState {
             r#type: stream_id.r#type.int_value(),

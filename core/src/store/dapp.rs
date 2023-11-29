@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use ceramic_core::StreamId;
-use dataverse_ceramic::network::Chain;
+use dataverse_ceramic::{
+    network::{Chain, Network},
+    Ceramic,
+};
 use once_cell::sync::Lazy;
 
 #[derive(Debug, Clone)]
@@ -13,6 +17,19 @@ pub struct Model {
     pub version: i32,
     pub indexed_on: String,
     pub chains: Vec<Chain>,
+}
+
+impl Model {
+    pub fn ceramic(&self) -> anyhow::Result<Ceramic> {
+        Ok(Ceramic {
+            endpoint: self.clone().indexed_on,
+            network: self.network()?,
+        })
+    }
+    pub fn network(&self) -> anyhow::Result<Network> {
+        let chain = self.chains.first().context("ceramic not in networks")?;
+        Ok(chain.network())
+    }
 }
 
 static MODEL_STORE: Lazy<ModelStore> = Lazy::new(ModelStore::new);
@@ -48,8 +65,7 @@ impl ModelStore {
             .client
             .lookup_dapp_by_dapp_id(&dapp_id.to_string())
             .await?;
-        let ceramic = dataverse_ceramic::http::Client::init(&dapp.ceramic)?;
-        let chains = ceramic.chains().await?;
+        let chains = dataverse_ceramic::http::Client::chains(&dapp.ceramic).await?;
 
         let mut models = vec![];
         for model in dapp.models {
@@ -82,8 +98,7 @@ impl ModelStore {
             .client
             .lookup_dapp_by_dapp_id(&dapp_id.to_string())
             .await?;
-        let ceramic = dataverse_ceramic::http::Client::init(&dapp.ceramic)?;
-        let chains = ceramic.chains().await?;
+        let chains = dataverse_ceramic::http::Client::chains(&dapp.ceramic).await?;
 
         for model in dapp.models {
             if model.model_name == model_name {
@@ -137,8 +152,7 @@ impl ModelStore {
             model_id: Some(model_id.to_string()),
         };
         let dapp = self.client.lookup_dapp(variables).await?;
-        let ceramic = dataverse_ceramic::http::Client::init(&dapp.ceramic)?;
-        let chains = ceramic.chains().await?;
+        let chains = dataverse_ceramic::http::Client::chains(&dapp.ceramic).await?;
 
         for model in dapp.models {
             for (idx, ele) in model.streams.iter().enumerate() {
