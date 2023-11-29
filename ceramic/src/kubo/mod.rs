@@ -1,26 +1,29 @@
+pub mod cache;
 pub mod message;
 pub mod pubsub;
 pub mod store;
+
+pub use cache::Cached;
 
 use std::sync::Arc;
 
 use ceramic_core::{Cid, StreamId};
 use ceramic_kubo_rpc_server::{
-    ApiNoContext, BlockGetPostResponse, ContextWrapperExt, PubsubPubPostResponse,
+    models, ApiNoContext, BlockGetPostResponse, ContextWrapperExt, PubsubPubPostResponse,
     PubsubSubPostResponse,
 };
 use futures::StreamExt;
 use futures_util::FutureExt;
 use int_enum::IntEnum;
 use serde_json::json;
-use swagger::{AuthData, ContextBuilder, EmptyContext, Push, XSpanIdString};
+use swagger::{AuthData, ByteArray, ContextBuilder, EmptyContext, Push, XSpanIdString};
 use tokio::task;
 
 use crate::{
-    event::{self, Event, EventsLoader, EventsPublisher},
+    event::{self, Event, EventsLoader, EventsUploader, ToCid},
     kubo::message::MessageResponse,
     network::Network,
-    Ceramic, StreamState,
+    Ceramic, StreamLoader, StreamPublisher, StreamState,
 };
 
 use self::{message::message_hash, pubsub::Message};
@@ -226,7 +229,47 @@ impl UpdatePublisher for Client {
 }
 
 #[async_trait::async_trait]
-impl EventsPublisher for Client {
+impl EventsUploader for Client {
+    async fn upload_event(
+        &self,
+        _ceramic: &Ceramic,
+        stream_id: &StreamId,
+        commit: Event,
+    ) -> anyhow::Result<()> {
+        let mhtype = Some(models::Multihash::Sha2256);
+        match commit.value {
+            event::EventValue::Signed(signed) => {
+                if let Some(cacao_block) = signed.cacao_block {
+                    let file = ByteArray(cacao_block);
+                    let _ = self.block_put_post(file, None, mhtype, None).await?;
+                }
+                if let Some(linked_block) = signed.linked_block {
+                    let file = ByteArray(linked_block);
+                    let _ = self.block_put_post(file, None, mhtype, None).await?;
+                }
+                match signed.jws.to_vec() {
+                    Ok(block) => {
+                        let file = ByteArray(block);
+                        let _ = self.block_put_post(file, None, mhtype, None).await?;
+                    }
+                    Err(err) => anyhow::bail!(
+                        "fialed to upload stream {} commit {}: {}",
+                        stream_id,
+                        commit.cid,
+                        err
+                    ),
+                }
+            }
+            // anchor commit generate by ceramic node default
+            // don't need to upload it
+            event::EventValue::Anchor(_) => {}
+        }
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl StreamPublisher for Client {
     async fn publish_events(
         &self,
         ceramic: &Ceramic,
@@ -241,6 +284,8 @@ impl EventsPublisher for Client {
         Ok(())
     }
 }
+
+impl StreamLoader for Client {}
 
 #[async_trait::async_trait]
 impl EventsLoader for Client {

@@ -52,12 +52,16 @@ impl ModelStore {
         &MODEL_STORE
     }
 
-    pub async fn get_dapp_ceramic(&self, dapp_id: &uuid::Uuid) -> anyhow::Result<String> {
+    pub async fn get_dapp_ceramic(&self, dapp_id: &uuid::Uuid) -> anyhow::Result<Ceramic> {
         let dapp = self
             .client
             .lookup_dapp_by_dapp_id(&dapp_id.to_string())
             .await?;
-        Ok(dapp.ceramic)
+        let chains = dataverse_ceramic::http::Client::chains(&dapp.ceramic).await?;
+        Ok(Ceramic {
+            endpoint: dapp.ceramic,
+            network: chains.first().context("ceramic not in networks")?.network(),
+        })
     }
 
     pub async fn get_models(&self, dapp_id: &uuid::Uuid) -> anyhow::Result<Vec<Model>> {

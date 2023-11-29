@@ -1587,6 +1587,7 @@ dependencies = [
  "json-patch",
  "libipld 0.16.0",
  "log 0.4.20",
+ "lru",
  "multibase 0.9.1",
  "reqwest",
  "serde",

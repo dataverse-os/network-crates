@@ -1,19 +1,19 @@
 use std::collections::HashMap;
 
 use ceramic_http_client::{FilterQuery, OperationFilter};
-use dataverse_ceramic::{Ceramic, StreamId, StreamLoader, StreamState};
+use dataverse_ceramic::{Ceramic, StreamId, StreamOperator, StreamState};
 
 use super::index_file::IndexFile;
 
 #[async_trait::async_trait]
-pub trait StreamFileLoader: StreamLoader {
+pub trait StreamFileLoader: StreamOperator {
     async fn load_index_file_by_content_id(
         &self,
         ceramic: &Ceramic,
         model_id: &StreamId,
         content_id: &String,
     ) -> anyhow::Result<(StreamState, IndexFile)> {
-        let streams = self.load_streams(ceramic, None, model_id).await?;
+        let streams = self.load_stream_states(ceramic, None, model_id).await?;
         for ele in streams {
             if let Ok(index_file) = serde_json::from_value::<IndexFile>(ele.content.clone()) {
                 if index_file.content_id == *content_id {

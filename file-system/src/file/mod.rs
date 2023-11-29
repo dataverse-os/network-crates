@@ -1,5 +1,5 @@
-mod client;
-pub mod loader;
+pub mod client;
+pub mod operator;
 
 pub mod access_control;
 pub mod action_file;
@@ -15,7 +15,7 @@ use std::fmt::Display;
 use anyhow::Context;
 pub use client::*;
 use dataverse_ceramic::StreamState;
-pub use loader::*;
+pub use operator::*;
 
 use ceramic_core::StreamId;
 use serde::{Deserialize, Serialize};

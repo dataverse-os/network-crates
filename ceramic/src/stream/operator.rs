@@ -1,25 +1,16 @@
 use crate::{
-    event::{Event, EventsLoader, EventsPublisher},
+    event::{Event, EventsLoader, EventsUploader},
     Ceramic, StreamState,
 };
 use ceramic_core::{Cid, StreamId};
 use int_enum::IntEnum;
 
-pub trait StreamOperator: StreamLoader + StreamPublisher {}
+#[async_trait::async_trait]
+pub trait StreamOperator: StreamsLoader + EventsUploader {}
 
 #[async_trait::async_trait]
-pub trait StreamLoader: EventsLoader + Sync + Send {
-    async fn load_stream(
-        &self,
-        ceramic: &Ceramic,
-        stream_id: &StreamId,
-        tip: Option<Cid>,
-    ) -> anyhow::Result<StreamState> {
-        let commits = self.load_events(ceramic, stream_id, tip).await?;
-        StreamState::new(stream_id.r#type.int_value(), commits)
-    }
-
-    async fn load_streams(
+pub trait StreamsLoader: StreamLoader {
+    async fn load_stream_states(
         &self,
         ceramic: &Ceramic,
         account: Option<String>,
@@ -28,15 +19,26 @@ pub trait StreamLoader: EventsLoader + Sync + Send {
 }
 
 #[async_trait::async_trait]
-pub trait StreamPublisher: EventsPublisher + Sync + Send {
-    async fn publish_stream(
+pub trait StreamLoader: EventsLoader + Sync + Send {
+    async fn load_stream_state(
+        &self,
+        ceramic: &Ceramic,
+        stream_id: &StreamId,
+        tip: Option<Cid>,
+    ) -> anyhow::Result<StreamState> {
+        let commits = self.load_events(ceramic, stream_id, tip).await?;
+        StreamState::new(stream_id.r#type.int_value(), commits)
+    }
+}
+
+#[async_trait::async_trait]
+pub trait StreamPublisher {
+    async fn publish_events(
         &self,
         ceramic: &Ceramic,
         stream_id: &StreamId,
         commits: Vec<Event>,
-    ) -> anyhow::Result<()> {
-        self.publish_events(ceramic, stream_id, commits).await
-    }
+    ) -> anyhow::Result<()>;
 }
 
 pub struct CachedStreamLoader<T: StreamLoader> {
@@ -67,7 +69,7 @@ impl<T: StreamLoader + Send + Sync> EventsLoader for CachedStreamLoader<T> {
 
 #[async_trait::async_trait]
 impl<T: StreamLoader + Send + Sync> StreamLoader for CachedStreamLoader<T> {
-    async fn load_stream(
+    async fn load_stream_state(
         &self,
         ceramic: &Ceramic,
         stream_id: &StreamId,
@@ -77,17 +79,25 @@ impl<T: StreamLoader + Send + Sync> StreamLoader for CachedStreamLoader<T> {
             return Ok(stream.clone());
         }
 
-        let stream = self.loader.load_stream(ceramic, stream_id, tip).await?;
+        let stream = self
+            .loader
+            .load_stream_state(ceramic, stream_id, tip)
+            .await?;
         // TODO: insert data into cache
         Ok(stream)
     }
+}
 
-    async fn load_streams(
+#[async_trait::async_trait]
+impl<T: StreamsLoader + Send + Sync> StreamsLoader for CachedStreamLoader<T> {
+    async fn load_stream_states(
         &self,
         ceramic: &Ceramic,
         account: Option<String>,
         model_id: &StreamId,
     ) -> anyhow::Result<Vec<StreamState>> {
-        self.loader.load_streams(ceramic, account, model_id).await
+        self.loader
+            .load_stream_states(ceramic, account, model_id)
+            .await
     }
 }

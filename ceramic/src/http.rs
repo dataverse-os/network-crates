@@ -9,10 +9,10 @@ use ssi::jwk::Algorithm;
 use crate::{
     commit::{Data, Genesis},
     did::generate_did_str,
-    event::{Event, EventsLoader, EventsPublisher},
+    event::{Event, EventsLoader, EventsUploader},
     network::{Chain, Network},
     stream::StreamState,
-    Ceramic, LogType, StreamLoader, StreamOperator, StreamPublisher,
+    Ceramic, LogType, StreamLoader, StreamOperator, StreamsLoader,
 };
 
 pub struct Client {}
@@ -85,44 +85,42 @@ impl EventsLoader for Client {
 }
 
 #[async_trait::async_trait]
-impl EventsPublisher for Client {
-    async fn publish_events(
+impl EventsUploader for Client {
+    async fn upload_event(
         &self,
         ceramic: &Ceramic,
         stream_id: &StreamId,
-        commits: Vec<Event>,
+        commit: Event,
     ) -> anyhow::Result<()> {
         let http_client = Self::init(&ceramic.endpoint)?;
         let client = reqwest::Client::new();
-        for ele in &commits {
-            match ele.log_type() {
-                LogType::Genesis => {
-                    let url = http_client.url_for_path("/api/v0/streams")?;
-                    let genesis = Genesis {
-                        r#type: stream_id.r#type.int_value(),
-                        genesis: ele.clone().try_into()?,
-                        opts: serde_json::Value::Null,
-                    };
-                    match client.post(url.as_str()).json(&genesis).send().await {
-                        Ok(res) => log::debug!("publish genesis {:?}", res),
-                        Err(err) => log::error!("publish genesis {}", err),
-                    };
-                }
-                LogType::Signed => {
-                    let url = http_client.url_for_path("/api/v0/commits")?;
-                    let signed = Data {
-                        stream_id: stream_id.clone(),
-                        commit: ele.clone().try_into()?,
-                        opts: serde_json::Value::Null,
-                    };
-                    match client.post(url.as_str()).json(&signed).send().await {
-                        Ok(res) => log::debug!("publish signed {:?}", res),
-                        Err(err) => log::error!("publish signed {}", err),
-                    };
-                }
-                _ => anyhow::bail!("invalid log type"),
-            };
-        }
+        match commit.log_type() {
+            LogType::Genesis => {
+                let url = http_client.url_for_path("/api/v0/streams")?;
+                let genesis = Genesis {
+                    r#type: stream_id.r#type.int_value(),
+                    genesis: commit.clone().try_into()?,
+                    opts: serde_json::Value::Null,
+                };
+                match client.post(url.as_str()).json(&genesis).send().await {
+                    Ok(res) => log::debug!("publish genesis {:?}", res),
+                    Err(err) => log::error!("publish genesis {}", err),
+                };
+            }
+            LogType::Signed => {
+                let url = http_client.url_for_path("/api/v0/commits")?;
+                let signed = Data {
+                    stream_id: stream_id.clone(),
+                    commit: commit.clone().try_into()?,
+                    opts: serde_json::Value::Null,
+                };
+                match client.post(url.as_str()).json(&signed).send().await {
+                    Ok(res) => log::debug!("publish signed {:?}", res),
+                    Err(err) => log::error!("publish signed {}", err),
+                };
+            }
+            _ => anyhow::bail!("invalid log type"),
+        };
         Ok(())
     }
 }
@@ -131,11 +129,8 @@ impl EventsPublisher for Client {
 impl StreamOperator for Client {}
 
 #[async_trait::async_trait]
-impl StreamPublisher for Client {}
-
-#[async_trait::async_trait]
 impl StreamLoader for Client {
-    async fn load_stream(
+    async fn load_stream_state(
         &self,
         ceramic: &Ceramic,
         stream_id: &StreamId,
@@ -146,8 +141,11 @@ impl StreamLoader for Client {
         let state = stream.state.context("Failed to load stream")?.try_into()?;
         Ok(state)
     }
+}
 
-    async fn load_streams(
+#[async_trait::async_trait]
+impl StreamsLoader for Client {
+    async fn load_stream_states(
         &self,
         ceramic: &Ceramic,
         account: Option<String>,
