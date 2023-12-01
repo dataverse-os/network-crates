@@ -2,8 +2,10 @@ pub mod cache;
 pub mod message;
 pub mod pubsub;
 pub mod store;
+pub mod task;
 
 pub use cache::Cached;
+pub use store::Store;
 
 use std::sync::Arc;
 
@@ -17,7 +19,6 @@ use futures_util::FutureExt;
 use int_enum::IntEnum;
 use serde_json::json;
 use swagger::{AuthData, ByteArray, ContextBuilder, EmptyContext, Push, XSpanIdString};
-use tokio::task;
 
 use crate::{
     event::{self, Event, EventsLoader, EventsUploader, ToCid},
@@ -110,16 +111,10 @@ impl TipQueryer for Client {
 
 #[async_trait::async_trait]
 pub trait MessageSubscriber {
-    async fn subscribe(
-        &self,
-        store: Arc<Box<dyn store::Store>>,
-        topic: String,
-    ) -> anyhow::Result<()>;
+    async fn subscribe(&self, store: Arc<dyn store::Store>, network: Network)
+        -> anyhow::Result<()>;
 
-    async fn message_handler(
-        store: Arc<Box<dyn store::Store>>,
-        msg: Message,
-    ) -> anyhow::Result<()> {
+    async fn message_handler(store: Arc<dyn store::Store>, msg: Message) -> anyhow::Result<()> {
         match msg {
             Message::Response { id, tips } => {
                 if store.exists(Some(id.clone()), None).await.unwrap_or(true) {
@@ -158,14 +153,14 @@ pub trait MessageSubscriber {
 impl MessageSubscriber for Client {
     async fn subscribe(
         &self,
-        store: Arc<Box<dyn store::Store>>,
-        topic: String,
+        store: Arc<dyn store::Store>,
+        network: Network,
     ) -> anyhow::Result<()> {
-        let sub = self.pubsub_sub_post(topic).await?;
+        let sub = self.pubsub_sub_post(network.kubo_topic()).await?;
 
         if let PubsubSubPostResponse::Success(body) = sub {
             let store = Arc::clone(&store);
-            let events_handle = task::spawn(
+            let events_handle = tokio::task::spawn(
                 body.for_each_concurrent(None, move |event| {
                     let store = Arc::clone(&store);
                     async move {
@@ -174,6 +169,7 @@ impl MessageSubscriber for Client {
                                 serde_json::from_slice(&data).expect("should be json message");
                             let msg_data = multibase::decode(msg_resp.data).unwrap().1;
                             if let Ok(msg) = serde_json::from_slice(&msg_data) {
+                                log::info!("kubo sub receive msg {:?}", msg);
                                 if let Err(err) = Self::message_handler(store, msg).await {
                                     log::error!("message handler error: {}", err)
                                 };
@@ -289,7 +285,10 @@ impl<T: CidLoader + Send + Sync> EventsLoader for T {
         let mut commits = Vec::new();
         let mut cid = match tip {
             Some(tip) => tip,
-            None => todo!("query latest tip of stream"),
+            None => {
+                log::warn!("kubo not support query tip, should input tip");
+                todo!("query latest tip of stream")
+            }
         };
         loop {
             let bytes = self.load_cid(&cid).await?;

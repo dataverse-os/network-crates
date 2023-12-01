@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Chain {
     EthereumMainnet,
@@ -41,6 +43,7 @@ impl FromStr for Chain {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Network {
     /// Production network
     Mainnet,

@@ -25,9 +25,9 @@ pub trait EventsUploader {
         &self,
         ceramic: &Ceramic,
         stream_id: &StreamId,
-        commit: Vec<Event>,
+        commits: Vec<Event>,
     ) -> anyhow::Result<()> {
-        for event in commit {
+        for event in commits {
             self.upload_event(ceramic, stream_id, event).await?;
         }
         Ok(())

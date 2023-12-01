@@ -7,8 +7,10 @@ pub mod stream;
 
 pub use ceramic_core::StreamId;
 pub use event::commit;
+use serde::{Deserialize, Serialize};
 pub use stream::*;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ceramic {
     pub endpoint: String,
     pub network: network::Network,

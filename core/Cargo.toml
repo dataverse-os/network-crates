@@ -12,8 +12,10 @@ ceramic-http-client = { workspace = true }
 chrono = { version = "0.4.30", features = ["serde"] }
 dapp-table-client = { workspace = true }
 dataverse-ceramic = { workspace = true }
+fang = { workspace = true }
 hex = { workspace = true }
 int-enum = { workspace = true }
+log = { workspace = true }
 multibase = "0.9.1"
 once_cell = "1.18.0"
 serde = { workspace = true }

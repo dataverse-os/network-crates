@@ -8,7 +8,7 @@ use std::{path::PathBuf, str::FromStr};
 use anyhow::Context;
 use ceramic_core::{Cid, StreamId};
 use dataverse_ceramic::stream::StreamState;
-use dataverse_ceramic::{Ceramic, StreamLoader, StreamOperator, StreamsLoader};
+use dataverse_ceramic::{kubo, Ceramic, StreamLoader, StreamOperator, StreamsLoader};
 use dataverse_core::stream::{Stream, StreamStore};
 use futures::TryStreamExt;
 use iroh::client::mem::{Doc, Iroh};
@@ -267,6 +267,38 @@ impl StreamLoader for Client {
         self.operator
             .load_stream_state(ceramic, stream_id, Some(tip))
             .await
+    }
+}
+
+#[async_trait::async_trait]
+impl kubo::Store for Client {
+    async fn exists(
+        &self,
+        _id: Option<String>,
+        stream_id: Option<StreamId>,
+    ) -> anyhow::Result<bool> {
+        if let Some(stream_id) = &stream_id {
+            if let Ok(_) = self.get_model_of_stream(stream_id).await {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    async fn push(
+        &self,
+        _id: Option<String>,
+        stream_id: Option<StreamId>,
+        tip: Cid,
+    ) -> anyhow::Result<()> {
+        if let Some(stream_id) = &stream_id {
+            if let Some(mut stream) = self.load_stream(stream_id).await? {
+                log::info!("receive tip {} of {}", tip, stream_id);
+                stream.tip = tip;
+                return self.save_stream(&stream).await;
+            }
+        }
+        Ok(())
     }
 }
 

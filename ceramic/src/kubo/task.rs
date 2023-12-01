@@ -1,4 +1,3 @@
-use dataverse_core::stream::Stream;
 use fang::async_trait;
 use fang::asynk::async_queue::AsyncQueueable;
 use fang::serde::{Deserialize, Serialize};
@@ -8,14 +7,14 @@ use fang::FangError;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "fang::serde")]
-pub struct Task {
-    pub stream: Stream,
+pub struct MessageHandler {
+    pub msg: Vec<u8>,
 }
 
 #[async_trait]
 #[typetag::serde]
-impl AsyncRunnable for Task {
-    async fn run(&self, queue: &mut dyn AsyncQueueable) -> Result<(), FangError> {
-        todo!("implement Task::run")
+impl AsyncRunnable for MessageHandler {
+    async fn run(&self, _queue: &mut dyn AsyncQueueable) -> Result<(), FangError> {
+        Ok(())
     }
 }

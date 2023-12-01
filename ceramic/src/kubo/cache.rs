@@ -15,12 +15,12 @@ use crate::{
 use super::{CidLoader, Client};
 
 pub struct Cached {
-    pub client: Client,
+    pub client: Arc<Client>,
     pub cache: Arc<Mutex<LruCache<Cid, Vec<u8>>>>,
 }
 
 impl Cached {
-    pub fn new(client: Client, cache_size: usize) -> anyhow::Result<Self> {
+    pub fn new(client: Arc<Client>, cache_size: usize) -> anyhow::Result<Self> {
         let cap = match NonZeroUsize::new(cache_size) {
             Some(cap) => cap,
             None => anyhow::bail!("{} is not a valid cache size", cache_size),
