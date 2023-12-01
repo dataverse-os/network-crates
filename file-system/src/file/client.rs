@@ -259,8 +259,9 @@ impl StreamEventSaver for Client<'_> {
         let ceramic = self.model_store.get_dapp_ceramic(dapp_id).await?;
         match &event.value {
             EventValue::Signed(signed) => {
-                let (mut stream, mut commits) =
-                    match self.stream_store.load_stream(&stream_id).await? {
+                let (mut stream, mut commits) = {
+                    let stream = self.stream_store.load_stream(&stream_id).await;
+                    match stream.ok().flatten() {
                         Some(stream) => (
                             stream.clone(),
                             self.operator
@@ -279,8 +280,8 @@ impl StreamEventSaver for Client<'_> {
                                 vec![],
                             )
                         }
-                    };
-
+                    }
+                };
                 // check if commit already exists
                 if commits.iter().any(|ele| ele.cid == event.cid) {
                     return stream.state(commits);

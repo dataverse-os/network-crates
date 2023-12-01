@@ -169,7 +169,7 @@ impl MessageSubscriber for Client {
                                 serde_json::from_slice(&data).expect("should be json message");
                             let msg_data = multibase::decode(msg_resp.data).unwrap().1;
                             if let Ok(msg) = serde_json::from_slice(&msg_data) {
-                                log::info!("kubo sub receive msg {:?}", msg);
+                                log::info!("kubo {:?} sub receive msg {:?}", network, msg);
                                 if let Err(err) = Self::message_handler(store, msg).await {
                                     log::error!("message handler error: {}", err)
                                 };
