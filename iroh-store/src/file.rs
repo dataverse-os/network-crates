@@ -2,7 +2,7 @@ use anyhow::Context;
 use ceramic_core::{Cid, StreamId};
 use dataverse_ceramic::{
     event::{Event, EventsLoader, EventsUploader},
-    Ceramic, StreamOperator, StreamPublisher,
+    Ceramic,
 };
 use dataverse_core::stream::StreamStore;
 use dataverse_file_system::file::StreamFileLoader;
@@ -10,8 +10,6 @@ use dataverse_file_system::file::StreamFileLoader;
 use crate::Client;
 
 impl StreamFileLoader for Client {}
-
-impl StreamOperator for Client {}
 
 #[async_trait::async_trait]
 impl EventsUploader for Client {
@@ -21,9 +19,7 @@ impl EventsUploader for Client {
         stream_id: &StreamId,
         commit: Event,
     ) -> anyhow::Result<()> {
-        self.kubo
-            .publish_events(ceramic, stream_id, vec![commit])
-            .await
+        self.operator.upload_event(ceramic, stream_id, commit).await
     }
 }
 
@@ -44,6 +40,8 @@ impl EventsLoader for Client {
                     .tip
             }
         };
-        self.kubo.load_events(ceramic, stream_id, Some(tip)).await
+        self.operator
+            .load_events(ceramic, stream_id, Some(tip))
+            .await
     }
 }

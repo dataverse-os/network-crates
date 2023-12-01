@@ -6,7 +6,9 @@ use ceramic_core::{Cid, StreamId};
 use int_enum::IntEnum;
 
 #[async_trait::async_trait]
-pub trait StreamOperator: StreamsLoader + EventsUploader {}
+pub trait StreamOperator: StreamLoader + EventsUploader {}
+
+impl<T: StreamLoader + EventsUploader> StreamOperator for T {}
 
 #[async_trait::async_trait]
 pub trait StreamsLoader: StreamLoader {

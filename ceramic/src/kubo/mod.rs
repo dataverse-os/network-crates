@@ -233,7 +233,7 @@ impl EventsUploader for Client {
     async fn upload_event(
         &self,
         _ceramic: &Ceramic,
-        stream_id: &StreamId,
+        _stream_id: &StreamId,
         commit: Event,
     ) -> anyhow::Result<()> {
         let mhtype = Some(models::Multihash::Sha2256);
@@ -247,18 +247,9 @@ impl EventsUploader for Client {
                     let file = ByteArray(linked_block);
                     let _ = self.block_put_post(file, None, mhtype, None).await?;
                 }
-                match signed.jws.to_vec() {
-                    Ok(block) => {
-                        let file = ByteArray(block);
-                        let _ = self.block_put_post(file, None, mhtype, None).await?;
-                    }
-                    Err(err) => anyhow::bail!(
-                        "fialed to upload stream {} commit {}: {}",
-                        stream_id,
-                        commit.cid,
-                        err
-                    ),
-                }
+                let jws_block = signed.jws.to_vec()?;
+                let file = ByteArray(jws_block);
+                let _ = self.block_put_post(file, None, mhtype, None).await?;
             }
             // anchor commit generate by ceramic node default
             // don't need to upload it
@@ -288,7 +279,7 @@ impl StreamPublisher for Client {
 impl StreamLoader for Client {}
 
 #[async_trait::async_trait]
-impl EventsLoader for Client {
+impl<T: CidLoader + Send + Sync> EventsLoader for T {
     async fn load_events(
         &self,
         _ceramic: &Ceramic,

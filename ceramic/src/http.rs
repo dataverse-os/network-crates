@@ -12,7 +12,7 @@ use crate::{
     event::{Event, EventsLoader, EventsUploader},
     network::{Chain, Network},
     stream::StreamState,
-    Ceramic, LogType, StreamLoader, StreamOperator, StreamsLoader,
+    Ceramic, LogType, StreamLoader, StreamsLoader,
 };
 
 pub struct Client {}
@@ -124,9 +124,6 @@ impl EventsUploader for Client {
         Ok(())
     }
 }
-
-#[async_trait::async_trait]
-impl StreamOperator for Client {}
 
 #[async_trait::async_trait]
 impl StreamLoader for Client {

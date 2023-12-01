@@ -2,12 +2,13 @@ pub mod file;
 
 pub use file::*;
 
+use std::sync::Arc;
 use std::{path::PathBuf, str::FromStr};
 
 use anyhow::Context;
 use ceramic_core::{Cid, StreamId};
 use dataverse_ceramic::stream::StreamState;
-use dataverse_ceramic::{kubo, Ceramic, StreamLoader, StreamsLoader};
+use dataverse_ceramic::{Ceramic, StreamLoader, StreamOperator, StreamsLoader};
 use dataverse_core::stream::{Stream, StreamStore};
 use futures::TryStreamExt;
 use iroh::client::mem::{Doc, Iroh};
@@ -20,7 +21,7 @@ use iroh_sync::{Author, AuthorId, NamespaceId, NamespacePublicKey, NamespaceSecr
 
 pub struct Client {
     pub iroh: Iroh,
-    pub kubo: kubo::Client,
+    pub operator: Arc<dyn StreamOperator>,
     pub author: AuthorId,
     pub streams: Doc,
     pub model: Doc,
@@ -50,7 +51,7 @@ impl Client {
         data_path: PathBuf,
         key: SecretKey,
         key_set: KeySet,
-        kubo_path: String,
+        operator: Arc<dyn StreamOperator + Send + Sync>,
     ) -> anyhow::Result<Self> {
         let rt = runtime::Handle::from_current(num_cpus::get())?;
 
@@ -79,7 +80,7 @@ impl Client {
             streams: Client::init_store(&client, &key_set.streams).await?,
             model: Client::init_store(&client, &key_set.model).await?,
             iroh: client,
-            kubo: kubo::new(&kubo_path),
+            operator,
         })
     }
 
@@ -236,7 +237,7 @@ impl StreamsLoader for Client {
         for stream in streams {
             let (stream_id, tip) = (stream.stream_id()?, Some(stream.tip));
             let state = self
-                .kubo
+                .operator
                 .load_stream_state(ceramic, &stream_id, tip)
                 .await?;
             result.push(state);
@@ -263,7 +264,7 @@ impl StreamLoader for Client {
             }
         };
 
-        self.kubo
+        self.operator
             .load_stream_state(ceramic, stream_id, Some(tip))
             .await
     }
@@ -271,7 +272,7 @@ impl StreamLoader for Client {
 
 #[cfg(test)]
 mod tests {
-    use dataverse_ceramic::event::Event;
+    use dataverse_ceramic::{event::Event, kubo};
 
     use super::*;
 
@@ -285,8 +286,10 @@ mod tests {
             streams: "ckuuo72r7skny5qy6njecmbgbix6ifn5wxg5sakqfvsamjsiohqq".to_string(),
         };
         let kubo_path = "http://localhost:5001";
+        let kubo = kubo::new(kubo_path);
+        let kubo = Arc::new(kubo);
 
-        let client = Client::new(temp.into_path(), key, key_set, kubo_path.into()).await?;
+        let client = Client::new(temp.into_path(), key, key_set, kubo).await?;
         Ok(client)
     }
 

@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use ceramic_http_client::{FilterQuery, OperationFilter};
-use dataverse_ceramic::{Ceramic, StreamId, StreamOperator, StreamState};
+use dataverse_ceramic::{event::EventsUploader, Ceramic, StreamId, StreamState, StreamsLoader};
 
 use super::index_file::IndexFile;
 
 #[async_trait::async_trait]
-pub trait StreamFileLoader: StreamOperator {
+pub trait StreamFileLoader: StreamsLoader + EventsUploader {
     async fn load_index_file_by_content_id(
         &self,
         ceramic: &Ceramic,
