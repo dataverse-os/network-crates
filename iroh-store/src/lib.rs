@@ -229,7 +229,7 @@ impl StreamsLoader for Client {
     async fn load_stream_states(
         &self,
         ceramic: &Ceramic,
-        _account: Option<String>,
+        account: Option<String>,
         model_id: &StreamId,
     ) -> anyhow::Result<Vec<StreamState>> {
         let mut result = Vec::new();
@@ -241,6 +241,12 @@ impl StreamsLoader for Client {
                 .load_stream_state(ceramic, &stream_id, tip)
                 .await?;
             result.push(state);
+        }
+        if let Some(account) = account {
+            result = result
+                .into_iter()
+                .filter(|state| state.controllers().contains(&account))
+                .collect();
         }
         Ok(result)
     }
@@ -346,7 +352,7 @@ mod tests {
         assert!(state.is_ok());
         let state = state.unwrap();
         let mut stream =
-            Stream::new(&dapp_id, genesis.r#type, &commit, state.model().ok()).unwrap();
+            Stream::new(&dapp_id, genesis.r#type, &commit, state.must_model().ok()).unwrap();
         let res = client.save_stream(&stream).await;
         assert!(res.is_ok());
         let update_at = state.content["updatedAt"].clone();
@@ -374,7 +380,7 @@ mod tests {
         assert_ne!(update_at, update_at_mod);
 
         // list stream state in model
-        let streams = client.list_stream_in_model(&state.model()?).await;
+        let streams = client.list_stream_in_model(&state.must_model()?).await;
         assert!(streams.is_ok());
         assert_eq!(streams.unwrap().len(), 1);
         Ok(())

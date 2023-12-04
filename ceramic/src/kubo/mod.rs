@@ -265,7 +265,7 @@ impl StreamPublisher for Client {
     ) -> anyhow::Result<()> {
         let state = StreamState::new(stream_id.r#type.int_value(), commits.clone())?;
         let tip = commits.last().expect("commits is empty").cid.clone();
-        let model = state.model()?;
+        let model = state.must_model()?;
         self.publish_update(ceramic, stream_id, &tip, &model)
             .await?;
         Ok(())

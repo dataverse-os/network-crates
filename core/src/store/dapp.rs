@@ -2,120 +2,174 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 use ceramic_core::StreamId;
-use dataverse_ceramic::{
-    network::{Chain, Network},
-    Ceramic,
-};
+use dataverse_ceramic::Ceramic;
 use once_cell::sync::Lazy;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct Model {
-    pub model_id: StreamId,
-    pub app_id: uuid::Uuid,
+    pub id: StreamId,
+    pub name: String,
+    pub dapp_id: uuid::Uuid,
     pub encryptable: Vec<String>,
-    pub model_name: String,
     pub version: i32,
-    pub indexed_on: String,
-    pub chains: Vec<Chain>,
 }
 
 impl Model {
-    pub fn ceramic(&self) -> anyhow::Result<Ceramic> {
-        Ok(Ceramic {
-            endpoint: self.clone().indexed_on,
-            network: self.network()?,
-        })
-    }
-    pub fn network(&self) -> anyhow::Result<Network> {
-        let chain = self.chains.first().context("ceramic not in networks")?;
-        Ok(chain.network())
+    pub async fn ceramic(&self) -> anyhow::Result<Ceramic> {
+        get_dapp_ceramic(&self.dapp_id).await
     }
 }
 
-static MODEL_STORE: Lazy<ModelStore> = Lazy::new(ModelStore::new);
+pub static MODEL_STORE: Lazy<Mutex<ModelStore>> = Lazy::new(|| Mutex::new(ModelStore::new()));
 
 pub struct ModelStore {
     client: dapp_table_client::Client,
     models: HashMap<String, Model>,
+    ceramic: HashMap<String, Ceramic>,
+    dapp_ceramic: HashMap<uuid::Uuid, String>,
+}
+
+pub async fn get_dapp_ceramic(dapp_id: &uuid::Uuid) -> anyhow::Result<Ceramic> {
+    MODEL_STORE
+        .lock()
+        .await
+        .get_dapp_ceramic(dapp_id, true)
+        .await
+}
+
+pub async fn get_ceramic(ceramic_str: &String) -> anyhow::Result<Ceramic> {
+    MODEL_STORE.lock().await.get_ceramic(ceramic_str).await
+}
+
+pub async fn get_model_by_name(dapp_id: &uuid::Uuid, model_name: &str) -> anyhow::Result<Model> {
+    MODEL_STORE
+        .lock()
+        .await
+        .get_model_by_name(dapp_id, model_name, true)
+        .await
+}
+
+pub async fn get_model(model_id: &StreamId) -> anyhow::Result<Model> {
+    MODEL_STORE.lock().await.get_model(model_id).await
+}
+
+pub async fn get_models(dapp_id: &uuid::Uuid, offline: bool) -> anyhow::Result<Vec<Model>> {
+    MODEL_STORE.lock().await.get_models(dapp_id, offline).await
 }
 
 impl ModelStore {
     fn new() -> Self {
         let backend = std::env::var("DAPP_TABLE_BACKEND").ok();
         ModelStore {
-            models: HashMap::new(),
+            models: Default::default(),
+            dapp_ceramic: Default::default(),
+            ceramic: Default::default(),
             client: dapp_table_client::Client::new(backend),
         }
     }
 
-    pub fn get_instance() -> &'static ModelStore {
-        &MODEL_STORE
-    }
-
-    pub async fn get_dapp_ceramic(&self, dapp_id: &uuid::Uuid) -> anyhow::Result<Ceramic> {
-        let dapp = self
-            .client
-            .lookup_dapp_by_dapp_id(&dapp_id.to_string())
-            .await?;
-        let chains = dataverse_ceramic::http::Client::chains(&dapp.ceramic).await?;
-        Ok(Ceramic {
-            endpoint: dapp.ceramic,
-            network: chains.first().context("ceramic not in networks")?.network(),
-        })
-    }
-
-    pub async fn get_models(&self, dapp_id: &uuid::Uuid) -> anyhow::Result<Vec<Model>> {
-        let dapp = self
-            .client
-            .lookup_dapp_by_dapp_id(&dapp_id.to_string())
-            .await?;
-        let chains = dataverse_ceramic::http::Client::chains(&dapp.ceramic).await?;
-
-        let mut models = vec![];
-        for model in dapp.models {
-            let stream = model.streams.last().expect("get length 0 of model streams");
-
-            models.push(Model {
-                model_id: stream.model_id.parse()?,
-                app_id: dapp.id.parse()?,
-                encryptable: stream.encryptable.clone(),
-                model_name: model.model_name,
-                version: model.streams.len() as i32,
-                indexed_on: dapp.ceramic.clone(),
-                chains: chains.clone(),
-            });
+    async fn get_dapp_ceramic(
+        &mut self,
+        dapp_id: &uuid::Uuid,
+        online: bool,
+    ) -> anyhow::Result<Ceramic> {
+        if let Some(ceramic) = self.dapp_ceramic.get(dapp_id) {
+            return self.get_ceramic(&ceramic.clone()).await;
         }
+        if online {
+            if let Ok((ceramic, _)) = self.load_dapp(dapp_id).await {
+                return Ok(ceramic);
+            };
+        }
+
+        anyhow::bail!("dapp not found")
+    }
+
+    async fn get_ceramic(&mut self, ceramic_str: &String) -> anyhow::Result<Ceramic> {
+        if let Some(ceramic) = self.ceramic.get(ceramic_str) {
+            return Ok(ceramic.clone());
+        }
+
+        let chains = dataverse_ceramic::http::Client::chains(&ceramic_str).await?;
+        let ceramic = Ceramic {
+            endpoint: ceramic_str.clone(),
+            network: chains.first().context("ceramic not in networks")?.network(),
+        };
+        self.ceramic.insert(ceramic_str.clone(), ceramic.clone());
+        Ok(ceramic)
+    }
+
+    async fn get_models(
+        &mut self,
+        dapp_id: &uuid::Uuid,
+        online: bool,
+    ) -> anyhow::Result<Vec<Model>> {
+        if !online {
+            let models = self
+                .models
+                .iter()
+                .map(|(_, x)| x.clone())
+                .filter(|x| x.dapp_id == *dapp_id)
+                .collect();
+            return Ok(models);
+        }
+        let (_, models) = self.load_dapp(dapp_id).await?;
         Ok(models)
     }
 
-    pub async fn get_model_by_name(
-        &self,
-        dapp_id: &uuid::Uuid,
-        model_name: &str,
-    ) -> anyhow::Result<Model> {
-        for ele in &self.models {
-            if ele.1.model_name == model_name && ele.1.app_id == *dapp_id {
-                return Ok(ele.1.clone());
-            }
-        }
+    async fn load_dapp(&mut self, dapp_id: &uuid::Uuid) -> anyhow::Result<(Ceramic, Vec<Model>)> {
+        log::info!("lookup dapp with dapp_id: {}", dapp_id);
         let dapp = self
             .client
             .lookup_dapp_by_dapp_id(&dapp_id.to_string())
             .await?;
-        let chains = dataverse_ceramic::http::Client::chains(&dapp.ceramic).await?;
+        self.dapp_ceramic
+            .insert(dapp_id.clone(), dapp.ceramic.clone());
+        let ceramic = self.get_ceramic(&dapp.ceramic).await?;
+        let models = self.store_dapp_models(dapp)?;
+        Ok((ceramic, models))
+    }
 
+    fn store_dapp_models(
+        &mut self,
+        dapp: dapp_table_client::get_dapp::GetDappGetDapp,
+    ) -> anyhow::Result<Vec<Model>> {
+        let mut result = vec![];
         for model in dapp.models {
-            if model.model_name == model_name {
-                let stream = model.streams.last().expect("get length 0 of model streams");
-                return Ok(Model {
-                    model_id: stream.model_id.parse()?,
-                    app_id: dapp.id.parse()?,
-                    encryptable: stream.encryptable.clone(),
-                    model_name: model.model_name,
-                    version: model.streams.len() as i32,
-                    indexed_on: dapp.ceramic.clone(),
-                    chains: chains.clone(),
-                });
+            for (idx, ele) in model.streams.iter().enumerate() {
+                let model = Model {
+                    id: ele.model_id.parse()?,
+                    dapp_id: dapp.id.parse()?,
+                    encryptable: ele.encryptable.clone(),
+                    name: model.model_name.clone(),
+                    version: idx as i32,
+                };
+                self.models.insert(model.id.to_string(), model.clone());
+                result.push(model)
+            }
+        }
+        Ok(result)
+    }
+
+    async fn get_model_by_name(
+        &mut self,
+        dapp_id: &uuid::Uuid,
+        model_name: &str,
+        online: bool,
+    ) -> anyhow::Result<Model> {
+        for model in self.models.values() {
+            if model.name == model_name && model.dapp_id == *dapp_id {
+                return Ok(model.clone());
+            }
+        }
+
+        if online {
+            let (_, models) = self.load_dapp(dapp_id).await?;
+            for model in models {
+                if model.name == model_name && model.dapp_id == *dapp_id {
+                    return Ok(model.clone());
+                }
             }
         }
 
@@ -126,51 +180,22 @@ impl ModelStore {
         )
     }
 
-    pub async fn get_model(&self, model_id: &StreamId) -> anyhow::Result<Model> {
-        for ele in &self.models {
-            if ele.1.model_id == *model_id {
-                return Ok(ele.1.clone());
-            }
+    pub async fn get_model(&mut self, model_id: &StreamId) -> anyhow::Result<Model> {
+        if let Some(model) = self.models.get(&model_id.to_string()) {
+            return Ok(model.clone());
         }
-        match self.lookup_dapp_model_in_db(&model_id).await {
-            Ok(model) => Ok(model),
-            Err(_) => self.lookup_dapp_model_by_query(&model_id).await,
-        }
-    }
 
-    pub async fn store_model(&mut self, model: Model) -> anyhow::Result<()> {
-        self.models.insert(model.model_id.to_string(), model);
-        Ok(())
-    }
-
-    pub async fn lookup_dapp_model_in_db(&self, model_id: &StreamId) -> anyhow::Result<Model> {
-        match self.models.get_key_value(&model_id.to_string()) {
-            Some(kv) => Ok(kv.1.clone()),
-            None => anyhow::bail!("model not found"),
-        }
-    }
-
-    pub async fn lookup_dapp_model_by_query(&self, model_id: &StreamId) -> anyhow::Result<Model> {
         let variables = dapp_table_client::get_dapp::Variables {
             dapp_id: None,
             model_id: Some(model_id.to_string()),
         };
+        log::info!("lookup dapp with model_id: {}", model_id);
         let dapp = self.client.lookup_dapp(variables).await?;
-        let chains = dataverse_ceramic::http::Client::chains(&dapp.ceramic).await?;
 
-        for model in dapp.models {
-            for (idx, ele) in model.streams.iter().enumerate() {
-                if ele.model_id == model_id.to_string() {
-                    return Ok(Model {
-                        model_id: ele.model_id.parse()?,
-                        app_id: dapp.id.parse()?,
-                        encryptable: ele.encryptable.clone(),
-                        model_name: model.model_name,
-                        version: idx as i32,
-                        indexed_on: dapp.ceramic,
-                        chains: chains.clone(),
-                    });
-                }
+        let models = self.store_dapp_models(dapp)?;
+        for model in models {
+            if model.id == *model_id {
+                return Ok(model);
             }
         }
         anyhow::bail!("model with id `{}` not found in dapp table", model_id)

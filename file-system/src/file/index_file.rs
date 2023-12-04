@@ -5,7 +5,7 @@ use async_std::task;
 use ceramic_core::{Base64String, Cid};
 use chrono::{DateTime, Utc};
 use dataverse_ceramic::{self as ceramic, StreamId};
-use dataverse_core::store::{dapp::ModelStore, stream::StreamStore};
+use dataverse_core::store::{dapp, stream::StreamStore};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -74,7 +74,6 @@ pub enum IndexFileType {
 
 struct IndexFileProcessor {
     pub state: ModelState,
-    pub model_store: ModelStore,
     pub stream_store: StreamStore,
 }
 
@@ -86,9 +85,9 @@ struct ModelState {
 impl Policy for IndexFileProcessor {
     async fn effect_at(&self, state: &ceramic::StreamState) -> Result<bool> {
         // check model_name is indexfile
-        let model_id = state.model()?;
-        let model = self.model_store.get_model(&model_id).await?;
-        Ok(model.model_name == "indexFile")
+        let model_id = state.must_model()?;
+        let model = dapp::get_model(&model_id).await?;
+        Ok(model.name == "indexFile")
     }
 
     async fn validate_data(
@@ -143,10 +142,10 @@ impl IndexFileProcessor {
     async fn validate_content_id(&self, content_id: &str) -> Result<()> {
         if let Ok(stream_id) = StreamId::from_str(content_id) {
             let state = self.stream_store.get_stream(&stream_id).await?;
-            let model = self.model_store.get_model(&state.model()?).await?;
-            if model.app_id != self.state.app_id {
-                anyhow::bail!("stream not in same app");
-            }
+            // let model = dapp::get_model(&state.model()?).await?;
+            // if model.app_id != self.state.app_id {
+            //     anyhow::bail!("stream not in same app");
+            // }
             // TODO check streamId not fs stream
             // TODO check streamId is Dapp stream
             // TODO check streamId can get from ceramic
@@ -169,7 +168,7 @@ impl IndexFileProcessor {
                     let model_id: StreamId = resource_id.parse()?;
                     let content_id: StreamId = content_id.parse()?;
                     let content = self.stream_store.get_stream(&content_id).await?;
-                    if model_id != content.model()? {
+                    if model_id != content.must_model()? {
                         anyhow::bail!("resourceId not match contentId")
                     }
                 }
@@ -183,10 +182,10 @@ impl IndexFileProcessor {
         if let Some(p) = &acl.encryption_provider {
             let linked_ceramic_models = p.linked_ceramic_models()?;
             for ele in linked_ceramic_models {
-                let model = self.model_store.get_model(&ele).await?;
-                if model.app_id != self.state.app_id {
-                    anyhow::bail!("linked model not in same app");
-                }
+                // let model = dapp::get_model(&ele).await?;
+                // if model.app_id != self.state.app_id {
+                //     anyhow::bail!("linked model not in same app");
+                // }
             }
         }
 

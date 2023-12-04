@@ -1,6 +1,6 @@
 use ceramic_core::{Base64String, StreamId};
 use chrono::{DateTime, Utc};
-use dataverse_core::store::dapp::ModelStore;
+use dataverse_core::store::dapp;
 use serde::{Deserialize, Serialize};
 
 use crate::policy::Policy;
@@ -49,9 +49,7 @@ pub enum ActionType {
     Receive,
 }
 
-struct ActionFileProcessor {
-    pub model_store: ModelStore,
-}
+struct ActionFileProcessor {}
 
 #[async_trait::async_trait]
 impl Policy for ActionFileProcessor {
@@ -60,9 +58,9 @@ impl Policy for ActionFileProcessor {
         state: &dataverse_ceramic::stream::StreamState,
     ) -> anyhow::Result<bool> {
         // check model_name is indexfile
-        let model_id = state.model()?;
-        let model = self.model_store.get_model(&model_id).await?;
-        Ok(model.model_name == "indexFile")
+        let model_id = state.must_model()?;
+        let model = dapp::get_model(&model_id).await?;
+        Ok(model.name == "indexFile")
     }
 }
 

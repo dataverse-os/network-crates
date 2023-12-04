@@ -243,7 +243,7 @@ mod tests {
         );
 
         assert_eq!(
-            state.model().unwrap(),
+            state.must_model().unwrap(),
             StreamId::from_str("kjzl6hvfrbw6c86gt9j415yw2x8stmkotcrzpeutrbkp42i4z90gp5ibptz4sso")
                 .unwrap()
         );

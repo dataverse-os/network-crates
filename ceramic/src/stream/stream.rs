@@ -6,7 +6,7 @@ use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::event::Event;
+use crate::event::{Event, VerifyOption};
 
 use super::commit_id::CommitId;
 use super::stream_id::StreamIdType;
@@ -73,13 +73,21 @@ pub struct AnchorProof {
 }
 
 impl StreamState {
-    pub fn new(r#type: u64, commits: Vec<Event>) -> anyhow::Result<Self> {
+    pub fn new(r#type: u64, events: Vec<Event>) -> anyhow::Result<Self> {
         let mut state = StreamState {
             r#type,
             ..Default::default()
         };
-        for ele in commits {
-            ele.apply_to(&mut state)?;
+        for event in events {
+            let model = state.must_model()?;
+            let opts = vec![
+                VerifyOption::ResourceModelsContain(model.clone()),
+                // cannot get anchor time (should get time of txHash from rpc)
+                // VerifyOption::ExpirationTimeBefore(Utc::now()),
+            ];
+            event.verify_signature(opts)?;
+
+            event.apply_to(&mut state)?;
         }
         Ok(state)
     }
@@ -100,14 +108,20 @@ impl StreamState {
     }
 
     /// Get model id for stream
-    pub fn model(&self) -> anyhow::Result<StreamId> {
-        let model = self
-            .metadata
+    pub fn model(&self) -> anyhow::Result<Option<StreamId>> {
+        self.metadata
             .get("model")
-            .expect("model not found in metadata");
-        let model = model.as_str().expect("model is not string");
-        let model = StreamId::from_str(model)?;
-        Ok(model)
+            .map(|model| {
+                let model = model.as_str().expect("model is not string");
+                StreamId::from_str(model)
+            })
+            .transpose()
+    }
+
+    pub fn must_model(&self) -> anyhow::Result<StreamId> {
+        self.model().and_then(|model| {
+            model.ok_or_else(|| anyhow::anyhow!("model not found in metadata stream_id"))
+        })
     }
 
     pub fn stream_id(&self) -> anyhow::Result<StreamId> {
@@ -244,7 +258,7 @@ mod tests {
             vec!["did:pkh:eip155:137:0x312eA852726E3A9f633A0377c0ea882086d66666"]
         );
         assert_eq!(
-            data.model().unwrap().to_string(),
+            data.must_model().unwrap().to_string(),
             "kjzl6hvfrbw6c763ubdhowzao0m4yp84cxzbfnlh4hdi5alqo4yrebmc0qpjdi5"
         );
 

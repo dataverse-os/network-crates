@@ -1,7 +1,5 @@
-use crate::{
-    event::{Event, EventsLoader, EventsUploader},
-    Ceramic, StreamState,
-};
+use crate::event::{Event, EventsLoader, EventsUploader};
+use crate::{Ceramic, StreamState};
 use ceramic_core::{Cid, StreamId};
 use int_enum::IntEnum;
 
@@ -28,8 +26,8 @@ pub trait StreamLoader: EventsLoader + Sync + Send {
         stream_id: &StreamId,
         tip: Option<Cid>,
     ) -> anyhow::Result<StreamState> {
-        let commits = self.load_events(ceramic, stream_id, tip).await?;
-        StreamState::new(stream_id.r#type.int_value(), commits)
+        let events = self.load_events(ceramic, stream_id, tip).await?;
+        StreamState::new(stream_id.r#type.int_value(), events)
     }
 }
 

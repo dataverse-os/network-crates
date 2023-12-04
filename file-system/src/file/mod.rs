@@ -67,7 +67,7 @@ impl StreamFile {
     pub fn write_file(&mut self, state: StreamState) -> anyhow::Result<()> {
         self.file = Some(state.content.clone());
         self.file_id = Some(state.stream_id()?);
-        self.file_model_id = Some(state.model()?);
+        self.file_model_id = Some(state.must_model()?);
         self.controller = state
             .controllers()
             .first()
@@ -85,7 +85,7 @@ impl StreamFile {
     pub fn write_content(&mut self, state: StreamState) -> anyhow::Result<()> {
         self.content = Some(state.content.clone());
         self.content_id = Some(state.stream_id()?.to_string());
-        self.model_id = Some(state.model()?);
+        self.model_id = Some(state.must_model()?);
         self.controller = state
             .controllers()
             .first()
