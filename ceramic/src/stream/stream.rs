@@ -79,6 +79,7 @@ impl StreamState {
             ..Default::default()
         };
         for event in events {
+            event.apply_to(&mut state)?;
             let model = state.must_model()?;
             let opts = vec![
                 VerifyOption::ResourceModelsContain(model.clone()),
@@ -86,8 +87,6 @@ impl StreamState {
                 // VerifyOption::ExpirationTimeBefore(Utc::now()),
             ];
             event.verify_signature(opts)?;
-
-            event.apply_to(&mut state)?;
         }
         Ok(state)
     }
