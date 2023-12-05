@@ -1,5 +1,5 @@
 use crate::event::{Event, EventsLoader, EventsUploader};
-use crate::{Ceramic, StreamState};
+use crate::{AnchorStatus, Ceramic, StreamState};
 use ceramic_core::{Cid, StreamId};
 use int_enum::IntEnum;
 
@@ -39,6 +39,15 @@ pub trait StreamPublisher {
         stream_id: &StreamId,
         commits: Vec<Event>,
     ) -> anyhow::Result<()>;
+}
+
+#[async_trait::async_trait]
+pub trait StreamAnchorRequester {
+    async fn request_anchor(
+        &self,
+        ceramic: &Ceramic,
+        stream_id: &StreamId,
+    ) -> anyhow::Result<AnchorStatus>;
 }
 
 pub struct CachedStreamLoader<T: StreamLoader> {

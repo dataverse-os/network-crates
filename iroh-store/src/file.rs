@@ -1,8 +1,8 @@
 use anyhow::Context;
 use ceramic_core::{Cid, StreamId};
 use dataverse_ceramic::{
-    event::{Event, EventsLoader, EventsUploader},
-    Ceramic,
+    event::{Event, EventValue, EventsLoader, EventsUploader},
+    http, Ceramic, StreamAnchorRequester,
 };
 use dataverse_core::stream::StreamStore;
 use dataverse_file_system::file::StreamFileLoader;
@@ -19,6 +19,17 @@ impl EventsUploader for Client {
         stream_id: &StreamId,
         commit: Event,
     ) -> anyhow::Result<()> {
+        if let EventValue::Signed(signed) = &commit.value {
+            if signed.is_gensis() {
+                let (ceramic, stream_id) = (ceramic.clone(), stream_id.clone());
+                tokio::spawn(async move {
+                    let http_operator = http::Client::new();
+                    if let Err(err) = http_operator.request_anchor(&ceramic, &stream_id).await {
+                        log::error!("failed to upload event: {}", err);
+                    };
+                });
+            }
+        }
         self.operator.upload_event(ceramic, stream_id, commit).await
     }
 }

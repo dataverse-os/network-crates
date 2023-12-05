@@ -12,7 +12,7 @@ use crate::{
     event::{Event, EventsLoader, EventsUploader},
     network::{Chain, Network},
     stream::StreamState,
-    Ceramic, LogType, StreamLoader, StreamsLoader,
+    AnchorStatus, Ceramic, LogType, StreamAnchorRequester, StreamLoader, StreamsLoader,
 };
 
 pub struct Client {}
@@ -149,6 +149,19 @@ impl StreamsLoader for Client {
         model_id: &StreamId,
     ) -> anyhow::Result<Vec<StreamState>> {
         self.query_model(ceramic, account, model_id, None).await
+    }
+}
+
+#[async_trait::async_trait]
+impl StreamAnchorRequester for Client {
+    async fn request_anchor(
+        &self,
+        ceramic: &Ceramic,
+        stream_id: &StreamId,
+    ) -> anyhow::Result<AnchorStatus> {
+        let http_client = Self::init(&ceramic.endpoint)?;
+        let status = http_client.request_anchor(stream_id).await?;
+        Ok(status.anchor_status.try_into()?)
     }
 }
 
