@@ -1,13 +1,11 @@
 use anyhow::{Context, Result};
 use ceramic_core::{Base64UrlString, Cid, StreamId};
 use ceramic_event::{DidDocument, JwkSigner};
-use ceramic_http_client::{remote::CeramicRemoteHttpClient, FilterQuery};
-use int_enum::IntEnum;
+use ceramic_http_client::{api, remote::CeramicRemoteHttpClient, FilterQuery};
 use json_patch::{patch, Patch};
 use ssi::jwk::Algorithm;
 
 use crate::{
-    commit::{Data, Genesis},
     did::generate_did_str,
     event::{Event, EventsLoader, EventsUploader},
     network::{Chain, Network},
@@ -93,30 +91,36 @@ impl EventsUploader for Client {
         commit: Event,
     ) -> anyhow::Result<()> {
         let http_client = Self::init(&ceramic.endpoint)?;
-        let client = reqwest::Client::new();
         match commit.log_type() {
             LogType::Genesis => {
-                let url = http_client.url_for_path("/api/v0/streams")?;
-                let genesis = Genesis {
-                    r#type: stream_id.r#type.int_value(),
-                    genesis: commit.clone().try_into()?,
-                    opts: serde_json::Value::Null,
+                let req = api::CreateRequest {
+                    r#type: stream_id.r#type,
+                    block: commit.clone().try_into()?,
                 };
-                match client.post(url.as_str()).json(&genesis).send().await {
-                    Ok(res) => log::debug!("publish genesis {:?}", res),
-                    Err(err) => log::error!("publish genesis {}", err),
+                match http_client.create_stream(req).await {
+                    Ok(res) => log::info!("publish genesis {} of {}", commit.cid, res.stream_id),
+                    Err(err) => log::error!(
+                        "failed to publish genesis {} of {}: {}",
+                        commit.cid,
+                        stream_id,
+                        err
+                    ),
                 };
             }
             LogType::Signed => {
-                let url = http_client.url_for_path("/api/v0/commits")?;
-                let signed = Data {
-                    stream_id: stream_id.clone(),
-                    commit: commit.clone().try_into()?,
-                    opts: serde_json::Value::Null,
+                let req = api::UpdateRequest {
+                    r#type: stream_id.r#type,
+                    stream_id: stream_id.try_into()?,
+                    block: commit.clone().try_into()?,
                 };
-                match client.post(url.as_str()).json(&signed).send().await {
-                    Ok(res) => log::debug!("publish signed {:?}", res),
-                    Err(err) => log::error!("publish signed {}", err),
+                match http_client.updat_stream(req).await {
+                    Ok(res) => log::info!("publish data {} of {}", commit.cid, res.stream_id),
+                    Err(err) => log::error!(
+                        "failed to publish signed {} of {}: {}",
+                        commit.cid,
+                        stream_id,
+                        err
+                    ),
                 };
             }
             _ => anyhow::bail!("invalid log type"),

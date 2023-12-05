@@ -70,6 +70,26 @@ impl TryInto<Event> for Content {
     }
 }
 
+impl<T> TryFrom<Event> for ceramic_http_client::api::BlockData<T>
+where
+    T: Serialize,
+{
+    type Error = anyhow::Error;
+
+    fn try_from(value: Event) -> Result<Self, Self::Error> {
+        if let EventValue::Signed(signed) = value.value {
+            return Ok(Self {
+                header: None,
+                data: None,
+                jws: Some(signed.jws),
+                linked_block: signed.linked_block.map(Base64String::from),
+                cacao_block: signed.cacao_block.map(Base64String::from),
+            });
+        }
+        return Err(anyhow::anyhow!("invalid event value"));
+    }
+}
+
 impl TryFrom<Event> for Content {
     type Error = anyhow::Error;
 

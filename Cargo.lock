@@ -861,7 +861,7 @@ dependencies = [
 [[package]]
 name = "ceramic-http-client"
 version = "0.1.0"
-source = "git+https://github.com/dataverse-os/ceramic-http-client-rs?branch=patch-methods#c444f89b69b301ca786197298175353587c24db1"
+source = "git+https://github.com/dataverse-os/ceramic-http-client-rs?branch=patch-methods#1374b2085dff847b6c29f07c6b28a8212e374455"
 dependencies = [
  "anyhow",
  "ceramic-event",
