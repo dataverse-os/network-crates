@@ -105,14 +105,18 @@ impl StreamFileTrait for Client {
             "indexFolder" | "contentFolder" => StreamFile::new_with_content(stream_state),
             _ => {
                 let mut file = StreamFile::new_with_content(stream_state)?;
-                let model_id = self
+                let index_file_model_id = self
                     .get_file_model(&dapp_id, FileModel::IndexFile)
                     .await?
                     .id;
 
                 let index_file = self
                     .operator
-                    .load_index_file_by_content_id(&ceramic, &model_id, &stream_id.to_string())
+                    .load_index_file_by_content_id(
+                        &ceramic,
+                        &index_file_model_id,
+                        &stream_id.to_string(),
+                    )
                     .await;
 
                 match index_file {
@@ -120,7 +124,12 @@ impl StreamFileTrait for Client {
                         file.write_file(file_state)?;
                     }
                     Err(err) => {
-                        log::error!("load index file of {} error: {}", stream_id, err);
+                        tracing::error!(
+                            model_id = index_file_model_id.to_string(),
+                            stream_id = stream_id.to_string(),
+                            "failed load index file model {}",
+                            err
+                        );
                         file.verified_status = -1;
                     }
                 }

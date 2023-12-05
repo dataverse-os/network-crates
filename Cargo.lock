@@ -1599,6 +1599,7 @@ dependencies = [
  "ssi",
  "swagger",
  "tokio",
+ "tracing",
  "unsigned-varint",
  "url",
 ]

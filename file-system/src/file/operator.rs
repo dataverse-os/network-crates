@@ -10,14 +10,27 @@ pub trait StreamFileLoader: StreamsLoader + EventsUploader {
     async fn load_index_file_by_content_id(
         &self,
         ceramic: &Ceramic,
-        model_id: &StreamId,
+        index_file_model_id: &StreamId,
         content_id: &String,
     ) -> anyhow::Result<(StreamState, IndexFile)> {
-        let streams = self.load_stream_states(ceramic, None, model_id).await?;
-        for ele in streams {
-            if let Ok(index_file) = serde_json::from_value::<IndexFile>(ele.content.clone()) {
-                if index_file.content_id == *content_id {
-                    return Ok((ele, index_file));
+        let stream_states = self
+            .load_stream_states(ceramic, None, index_file_model_id)
+            .await?;
+        for state in stream_states {
+            match serde_json::from_value::<IndexFile>(state.content.clone()) {
+                Ok(index_file) => {
+                    if index_file.content_id == *content_id {
+                        return Ok((state, index_file));
+                    }
+                }
+                Err(err) => {
+                    let stream_id = state.stream_id()?.to_string();
+                    tracing::warn!(
+                        stream_id,
+                        content = state.content.to_string(),
+                        "filed parse stream as index_file: {}",
+                        err
+                    );
                 }
             }
         }

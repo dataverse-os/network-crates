@@ -100,10 +100,10 @@ impl EventsUploader for Client {
                 };
                 match http_client.create_stream(req).await {
                     Ok(res) => log::info!("publish genesis {} of {}", commit.cid, res.stream_id),
-                    Err(err) => log::error!(
-                        "failed to publish genesis {} of {}: {}",
-                        commit.cid,
-                        stream_id,
+                    Err(err) => tracing::error!(
+                        cid = commit.cid.to_string(),
+                        stream_id = stream_id.to_string(),
+                        "failed to publish genesis: {}",
                         err
                     ),
                 };
@@ -116,10 +116,10 @@ impl EventsUploader for Client {
                 };
                 match http_client.updat_stream(req).await {
                     Ok(res) => log::info!("publish data {} of {}", commit.cid, res.stream_id),
-                    Err(err) => log::error!(
-                        "failed to publish signed {} of {}: {}",
-                        commit.cid,
-                        stream_id,
+                    Err(err) => tracing::error!(
+                        cid = commit.cid.to_string(),
+                        stream_id = stream_id.to_string(),
+                        "failed to publish signed: {}",
                         err
                     ),
                 };

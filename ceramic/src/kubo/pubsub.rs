@@ -14,7 +14,7 @@ pub enum MessageType {
     Keepalive = 3,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub enum Message {
     Update {
         stream: String,
