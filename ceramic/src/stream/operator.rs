@@ -32,16 +32,6 @@ pub trait StreamLoader: EventsLoader + Sync + Send {
 }
 
 #[async_trait::async_trait]
-pub trait StreamPublisher {
-    async fn publish_events(
-        &self,
-        ceramic: &Ceramic,
-        stream_id: &StreamId,
-        commits: Vec<Event>,
-    ) -> anyhow::Result<()>;
-}
-
-#[async_trait::async_trait]
 pub trait StreamAnchorRequester {
     async fn request_anchor(
         &self,

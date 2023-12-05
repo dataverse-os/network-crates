@@ -24,7 +24,7 @@ use crate::{
     event::{self, Event, EventsLoader, EventsUploader, ToCid},
     kubo::message::MessageResponse,
     network::Network,
-    Ceramic, StreamLoader, StreamPublisher, StreamState,
+    Ceramic, StreamLoader, StreamState,
 };
 
 use self::{message::message_hash, pubsub::Message};
@@ -188,7 +188,7 @@ impl MessageSubscriber for Client {
 }
 
 #[async_trait::async_trait]
-pub trait UpdatePublisher {
+pub trait MessageUpdatePublisher {
     async fn publish_update(
         &self,
         ceramic: &Ceramic,
@@ -199,7 +199,7 @@ pub trait UpdatePublisher {
 }
 
 #[async_trait::async_trait]
-impl UpdatePublisher for Client {
+impl MessageUpdatePublisher for Client {
     async fn publish_update(
         &self,
         ceramic: &Ceramic,
@@ -243,8 +243,7 @@ impl EventsUploader for Client {
                     let file = ByteArray(linked_block);
                     let _ = self.block_put_post(file, None, mhtype, None).await?;
                 }
-                let jws_block = signed.jws.to_vec()?;
-                let file = ByteArray(jws_block);
+                let file = ByteArray(signed.jws.to_vec()?);
                 let _ = self.block_put_post(file, None, mhtype, None).await?;
             }
             // anchor commit generate by ceramic node default
@@ -253,19 +252,25 @@ impl EventsUploader for Client {
         }
         Ok(())
     }
-}
 
-#[async_trait::async_trait]
-impl StreamPublisher for Client {
-    async fn publish_events(
+    async fn upload_events(
         &self,
         ceramic: &Ceramic,
         stream_id: &StreamId,
         commits: Vec<Event>,
     ) -> anyhow::Result<()> {
+        let tip = match commits.last() {
+            Some(commit) => commit.cid,
+            None => anyhow::bail!("input commits of {} is empty", stream_id),
+        };
+
         let state = StreamState::new(stream_id.r#type.int_value(), commits.clone())?;
-        let tip = commits.last().expect("commits is empty").cid.clone();
         let model = state.must_model()?;
+
+        for commit in commits {
+            self.upload_event(ceramic, stream_id, commit).await?;
+        }
+
         self.publish_update(ceramic, stream_id, &tip, &model)
             .await?;
         Ok(())

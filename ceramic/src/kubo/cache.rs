@@ -2,10 +2,8 @@ extern crate lru;
 
 use ceramic_core::{Cid, StreamId};
 use lru::LruCache;
-use std::{
-    num::NonZeroUsize,
-    sync::{Arc, Mutex},
-};
+use std::{num::NonZeroUsize, sync::Arc};
+use tokio::sync::Mutex;
 
 use crate::{
     event::{self, Event, EventsUploader, ToCid},
@@ -39,7 +37,7 @@ impl CidLoader for Cached {
     async fn load_cid(&self, cid: &Cid) -> anyhow::Result<Vec<u8>> {
         let data_opt;
         {
-            let mut cache = self.cache.lock().unwrap();
+            let mut cache = self.cache.lock().await;
             data_opt = cache.get(&cid).map(|data| data.to_vec());
         }
         if let Some(data) = data_opt {
@@ -47,7 +45,7 @@ impl CidLoader for Cached {
         }
         match self.client.load_cid(cid).await {
             Ok(data) => {
-                let mut cache = self.cache.lock().unwrap();
+                let mut cache = self.cache.lock().await;
                 cache.put(cid.clone(), data.to_vec());
                 Ok(data)
             }
@@ -66,17 +64,15 @@ impl EventsUploader for Cached {
     ) -> anyhow::Result<()> {
         match &commit.value {
             event::EventValue::Signed(signed) => {
-                let mut cache = self.cache.lock().unwrap();
+                let mut cache = self.cache.lock().await;
+
                 if let Some(cacao_block) = &signed.cacao_block {
-                    let cacao = signed.cacao_link()?;
-                    cache.put(cacao, cacao_block.to_vec());
+                    cache.put(signed.cacao_link()?, cacao_block.to_vec());
                 }
                 if let Some(linked_block) = &signed.linked_block {
-                    let payload = signed.payload_link()?;
-                    cache.put(payload, linked_block.to_vec());
+                    cache.put(signed.payload_link()?, linked_block.to_vec());
                 }
-                let jws_block = signed.jws.to_vec()?;
-                cache.put(commit.cid, jws_block);
+                cache.put(commit.cid, signed.jws.to_vec()?);
             }
             // anchor commit generate by ceramic node default
             // don't need to upload it
