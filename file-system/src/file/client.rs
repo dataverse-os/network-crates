@@ -116,10 +116,11 @@ impl StreamFileTrait for Client {
                     .await;
 
                 match index_file {
-                    Ok((state, _)) => {
-                        file.write_content(state)?;
+                    Ok((file_state, _)) => {
+                        file.write_file(file_state)?;
                     }
-                    _ => {
+                    Err(err) => {
+                        log::error!("load index file of {} error: {}", stream_id, err);
                         file.verified_status = -1;
                     }
                 }

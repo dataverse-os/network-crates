@@ -42,6 +42,17 @@ pub struct AnchorProof {
     pub tx_type: Option<String>,
 }
 
+impl AnchorProof {
+    pub fn tx_hash(&self) -> anyhow::Result<String> {
+        cid_to_eth_hash(self.tx_hash)
+    }
+}
+
+pub fn cid_to_eth_hash(tx_hash: Cid) -> anyhow::Result<String> {
+    let digest = tx_hash.hash().digest();
+    Ok(format!("0x{}", hex::encode(digest)))
+}
+
 impl Into<crate::stream::AnchorProof> for AnchorProof {
     fn into(self) -> crate::stream::AnchorProof {
         crate::stream::AnchorProof {
@@ -73,5 +84,18 @@ mod tests {
         let node: Ipld = DagCborCodec.decode(&data).unwrap();
         let proof = libipld::serde::from_ipld::<AnchorProof>(node);
         assert!(proof.is_ok());
+    }
+
+    #[test]
+    fn convert_tx_hash() {
+        let tx_cid: Cid = "bagjqcgzarunrbdmaxof2kcufryoazwfc36zhltmq4fu73n4cmlytb7kt2tka"
+            .parse()
+            .unwrap();
+        let tx_hash = cid_to_eth_hash(tx_cid);
+        assert!(tx_hash.is_ok());
+        assert_eq!(
+            tx_hash.unwrap(),
+            "0x8d1b108d80bb8ba50a858e1c0cd8a2dfb275cd90e169fdb78262f130fd53d4d4"
+        );
     }
 }

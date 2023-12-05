@@ -21,7 +21,7 @@ pub trait StreamFileLoader: StreamsLoader + EventsUploader {
                 }
             }
         }
-        anyhow::bail!("index file not found")
+        anyhow::bail!("index file with content_id {} not found", content_id)
     }
 }
 

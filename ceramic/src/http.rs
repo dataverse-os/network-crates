@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use ceramic_core::{Base64UrlString, Cid, StreamId};
 use ceramic_event::{DidDocument, JwkSigner};
 use ceramic_http_client::{api, remote::CeramicRemoteHttpClient, FilterQuery};
+use int_enum::IntEnum;
 use json_patch::{patch, Patch};
 use ssi::jwk::Algorithm;
 
@@ -165,7 +166,7 @@ impl StreamAnchorRequester for Client {
     ) -> anyhow::Result<AnchorStatus> {
         let http_client = Self::init(&ceramic.endpoint)?;
         let status = http_client.request_anchor(stream_id).await?;
-        Ok(status.anchor_status.try_into()?)
+        Ok(AnchorStatus::from_int(status.anchor_status)?)
     }
 }
 

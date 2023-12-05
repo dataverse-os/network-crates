@@ -78,12 +78,13 @@ impl ModelStore {
             return self.get_ceramic(&ceramic.clone()).await;
         }
         if online {
-            if let Ok((ceramic, _)) = self.load_dapp(dapp_id).await {
-                return Ok(ceramic);
+            match self.load_dapp(dapp_id).await {
+                Ok((ceramic, _)) => return Ok(ceramic),
+                Err(err) => log::warn!("load dapp error: {}", err),
             };
         }
 
-        anyhow::bail!("dapp not found")
+        anyhow::bail!("dapp {} not found", dapp_id)
     }
 
     async fn get_ceramic(&mut self, ceramic_str: &String) -> anyhow::Result<Ceramic> {
