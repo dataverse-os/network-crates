@@ -107,7 +107,7 @@ mod tests {
             .unwrap();
         let tx_hash = cid_to_eth_hash(tx_cid);
         assert!(tx_hash.is_ok());
-        let tx_hash_str = format!("0x{:?}", tx_hash.unwrap());
+        let tx_hash_str = format!("{:?}", tx_hash.unwrap());
         assert_eq!(
             tx_hash_str,
             "0x1b4b48baafb578fcac2facc58e52479da3acae43da16dc77afb1916674be6999"
