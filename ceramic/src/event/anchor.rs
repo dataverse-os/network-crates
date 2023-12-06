@@ -21,18 +21,21 @@ pub struct AnchorValue {
 }
 
 impl AnchorValue {
-    pub fn proof(&self) -> anyhow::Result<AnchorProof> {
-        if let Some(proof_block) = &self.proof_block {
-            let node = DagCborCodec.decode(proof_block)?;
-            return libipld::serde::from_ipld::<AnchorProof>(node).map_err(|e| e.into());
+    pub fn proof(&self) -> anyhow::Result<Option<AnchorProof>> {
+        match &self.proof_block {
+            Some(proof_block) => {
+                let node = DagCborCodec.decode(proof_block)?;
+                let proof = libipld::serde::from_ipld::<AnchorProof>(node);
+                return Ok(Some(proof?));
+            }
+            None => Ok(None),
         }
-        anyhow::bail!("no proof block")
     }
 }
 
 impl StreamStateApplyer for AnchorValue {
     fn apply_to(&self, stream_state: &mut StreamState) -> anyhow::Result<()> {
-        stream_state.anchor_proof = Some(self.proof()?.into());
+        stream_state.anchor_proof = self.proof()?.map(|x| x.into());
         Ok(())
     }
 }

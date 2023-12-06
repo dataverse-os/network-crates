@@ -48,8 +48,6 @@ impl Event {
     }
 
     pub async fn apply_to(&self, state: &mut StreamState) -> anyhow::Result<()> {
-        self.value.apply_to(state)?;
-
         let mut state_log = StateLog {
             cid: self.cid.to_string(),
             r#type: self.log_type() as u64,
@@ -58,40 +56,45 @@ impl Event {
         };
         match &self.value {
             EventValue::Signed(signed) => {
+                signed.apply_to(state)?;
+
                 if let Some(cacao) = signed.cacao()? {
                     let exp = cacao.p.expiration_time()?;
                     state_log.expiration_time = exp.map(|x| x.timestamp());
                 }
             }
-            EventValue::Anchor(acnhor) => {
-                let proof = acnhor.proof()?;
-                let provider = network::provider(proof.chain()?).await?;
-                let transaction_hash = proof.tx_hash()?;
-                let tx = match provider.get_transaction(transaction_hash).await? {
-                    Some(tx) => tx,
-                    None => {
-                        tracing::warn!(
-                            event_id = self.cid.to_string(),
-                            transaction_hash = transaction_hash.to_string(),
-                            "transaction not found"
-                        );
-                        anyhow::bail!("transaction not found: {}", transaction_hash)
-                    }
+            EventValue::Anchor(anchor) => {
+                anchor.apply_to(state)?;
+
+                if let Some(proof) = anchor.proof()? {
+                    let provider = network::provider(proof.chain()?).await?;
+                    let transaction_hash = proof.tx_hash()?;
+                    let tx = match provider.get_transaction(transaction_hash).await? {
+                        Some(tx) => tx,
+                        None => {
+                            tracing::warn!(
+                                event_id = self.cid.to_string(),
+                                transaction_hash = transaction_hash.to_string(),
+                                "transaction not found"
+                            );
+                            anyhow::bail!("transaction not found: {}", transaction_hash)
+                        }
+                    };
+                    let block_hash = tx.block_hash.context("no block hash")?;
+                    let block = match provider.get_block(block_hash).await? {
+                        Some(block) => block,
+                        None => {
+                            tracing::warn!(
+                                event_id = self.cid.to_string(),
+                                transaction_hash = transaction_hash.to_string(),
+                                block_hash = block_hash.to_string(),
+                                "block not found"
+                            );
+                            anyhow::bail!("block not found block_hash: {}", block_hash)
+                        }
+                    };
+                    state_log.timestamp = Some(block.timestamp.as_u64() as i64);
                 };
-                let block_hash = tx.block_hash.context("no block hash")?;
-                let block = match provider.get_block(block_hash).await? {
-                    Some(block) => block,
-                    None => {
-                        tracing::warn!(
-                            event_id = self.cid.to_string(),
-                            transaction_hash = transaction_hash.to_string(),
-                            block_hash = block_hash.to_string(),
-                            "block not found"
-                        );
-                        anyhow::bail!("block not found block_hash: {}", block_hash)
-                    }
-                };
-                state_log.timestamp = Some(block.timestamp.as_u64() as i64);
             }
         };
         state.log.push(state_log);
@@ -155,15 +158,6 @@ pub enum EventValue {
 
 trait StreamStateApplyer {
     fn apply_to(&self, stream_state: &mut StreamState) -> anyhow::Result<()>;
-}
-
-impl StreamStateApplyer for EventValue {
-    fn apply_to(&self, stream_state: &mut StreamState) -> anyhow::Result<()> {
-        match self {
-            EventValue::Signed(signed) => return signed.apply_to(stream_state),
-            EventValue::Anchor(anchor) => return anchor.apply_to(stream_state),
-        };
-    }
 }
 
 impl EventValue {
