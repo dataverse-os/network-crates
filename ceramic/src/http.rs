@@ -286,7 +286,7 @@ mod tests {
             .await;
         assert!(events.is_ok());
 
-        let stream = StreamState::new(stream_id.r#type.int_value(), events.unwrap());
+        let stream = StreamState::make(stream_id.r#type.int_value(), events.unwrap()).await;
         assert!(stream.is_ok());
 
         let stream_from_ceramic = http_client.get(&stream_id).await;

@@ -27,7 +27,7 @@ pub trait StreamLoader: EventsLoader + Sync + Send {
         tip: Option<Cid>,
     ) -> anyhow::Result<StreamState> {
         let events = self.load_events(ceramic, stream_id, tip).await?;
-        StreamState::new(stream_id.r#type.int_value(), events)
+        StreamState::make(stream_id.r#type.int_value(), events).await
     }
 }
 

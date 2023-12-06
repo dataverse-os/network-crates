@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 async-trait = { workspace = true }
-bytes = "1.5.0"
+bytes = { workspace = true }
 ceramic-core = { workspace = true }
 ceramic-kubo-rpc-server = { workspace = true }
 chrono = { version = "0.4.30", features = ["serde"] }

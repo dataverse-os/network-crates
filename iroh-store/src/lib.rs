@@ -278,17 +278,18 @@ impl StreamLoader for Client {
 
 #[async_trait::async_trait]
 impl kubo::Store for Client {
-    async fn exists(
+    async fn get(
         &self,
         _id: Option<String>,
         stream_id: Option<StreamId>,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<Option<Cid>> {
         if let Some(stream_id) = &stream_id {
-            if let Ok(_) = self.get_model_of_stream(stream_id).await {
-                return Ok(true);
-            }
+            return self
+                .load_stream(stream_id)
+                .await
+                .map(|stream| stream.map(|s| s.tip));
         }
-        Ok(false)
+        Ok(None)
     }
 
     async fn push(
@@ -300,6 +301,7 @@ impl kubo::Store for Client {
         if let Some(stream_id) = &stream_id {
             if let Some(mut stream) = self.load_stream(stream_id).await? {
                 log::info!("receive tip {} of {}", tip, stream_id);
+                //TODO: load events and check if the input tip is older than the current tip
                 stream.tip = tip;
                 return self.save_stream(&stream).await;
             }
@@ -348,7 +350,7 @@ mod tests {
         let dapp_id = uuid::Uuid::new_v4();
         let commit: Event = genesis.genesis.try_into().unwrap();
         let mut commits = vec![commit.clone()];
-        let state = StreamState::new(genesis.r#type, commits.clone());
+        let state = StreamState::make(genesis.r#type, commits.clone()).await;
         assert!(state.is_ok());
         let state = state.unwrap();
         let mut stream =
@@ -373,7 +375,7 @@ mod tests {
         assert!(stream.is_some());
 
         // load commits
-        let state = stream.unwrap().state(commits);
+        let state = stream.unwrap().state(commits).await;
         assert!(state.is_ok());
         let state = state.unwrap();
         let update_at_mod = state.content["updatedAt"].clone();

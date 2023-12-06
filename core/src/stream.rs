@@ -50,8 +50,8 @@ impl Stream {
         })
     }
 
-    pub fn state(&self, commits: Vec<Event>) -> anyhow::Result<StreamState> {
-        StreamState::new(self.r#type, commits)
+    pub async fn state(&self, commits: Vec<Event>) -> anyhow::Result<StreamState> {
+        StreamState::make(self.r#type, commits).await
     }
 }
 

@@ -73,13 +73,13 @@ pub struct AnchorProof {
 }
 
 impl StreamState {
-    pub fn new(r#type: u64, events: Vec<Event>) -> anyhow::Result<Self> {
+    pub async fn make(r#type: u64, events: Vec<Event>) -> anyhow::Result<Self> {
         let mut state = StreamState {
             r#type,
             ..Default::default()
         };
         for event in events {
-            event.apply_to(&mut state)?;
+            event.apply_to(&mut state).await?;
             let model = state.must_model()?;
             let opts = vec![
                 VerifyOption::ResourceModelsContain(model.clone()),

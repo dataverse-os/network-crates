@@ -4,6 +4,7 @@ pub mod pubsub;
 pub mod store;
 pub mod task;
 
+use bytes::Bytes;
 pub use cache::Cached;
 pub use store::Store;
 
@@ -15,7 +16,6 @@ use ceramic_kubo_rpc_server::{
     PubsubSubPostResponse,
 };
 use futures::StreamExt;
-use futures_util::FutureExt;
 use int_enum::IntEnum;
 use serde_json::json;
 use swagger::{AuthData, ByteArray, ContextBuilder, EmptyContext, Push, XSpanIdString};
@@ -110,20 +110,68 @@ impl TipQueryer for Client {
 }
 
 #[async_trait::async_trait]
-pub trait MessageSubscriber {
+pub trait MessageSubscriber: MessageResponsePublisher {
     async fn subscribe(&self, store: Arc<dyn store::Store>, network: Network)
         -> anyhow::Result<()>;
 
-    async fn message_handler(store: Arc<dyn store::Store>, msg: Message) -> anyhow::Result<()> {
+    async fn kubo_message_handler(
+        &self,
+        network: Network,
+        store: Arc<dyn store::Store>,
+        event: Result<Bytes, Box<dyn std::error::Error + Send + Sync>>,
+    ) -> () {
+        let msg_resp = match event {
+            Ok(data) => match serde_json::from_slice::<MessageResponse>(&data) {
+                Ok(msg) => msg,
+                Err(err) => {
+                    let data = String::from_utf8_lossy(&data);
+                    tracing::error!(?data, "failed to decode as MessageResponse: {}", err);
+                    return;
+                }
+            },
+            Err(err) => {
+                tracing::error!("kubo sub error: {}", err);
+                return;
+            }
+        };
+
+        if let Ok((_, msg_data)) = multibase::decode(msg_resp.data) {
+            if let Ok(msg) = serde_json::from_slice::<Message>(&msg_data) {
+                tracing::info!(?network, ?msg, "kubo sub receive msg");
+                if let Err(err) = self
+                    .ceramic_message_handler(network, store, msg.clone())
+                    .await
+                {
+                    tracing::error!(?network, ?msg, "ceramic message handler error: {}", err)
+                };
+            }
+        };
+    }
+
+    async fn ceramic_message_handler(
+        &self,
+        network: Network,
+        store: Arc<dyn store::Store>,
+        msg: Message,
+    ) -> anyhow::Result<()> {
         match msg {
+            Message::Query { id, stream } => {
+                let stream_id: StreamId = stream.parse()?;
+                if let Some(tip) = store.get(Some(id.clone()), Some(stream_id.clone())).await? {
+                    tracing::info!(?network, ?id, ?stream, ?tip, "query stored response");
+                    if let Err(err) = self.publish_response(&network, &id, &stream_id, &tip).await {
+                        tracing::error!(?network, ?id, ?stream, "publish response error: {}", err)
+                    }
+                }
+            }
             Message::Response { id, tips } => {
-                if store.exists(Some(id.clone()), None).await.unwrap_or(true) {
+                if let Some(_) = store.get(Some(id.clone()), None).await? {
                     for (stream_id, tip) in tips {
                         let push = store
                             .push(Some(id.clone()), Some(stream_id.parse()?), tip.parse()?)
                             .await;
                         if let Err(err) = push {
-                            log::error!("store push error: {}", err)
+                            tracing::error!(stream_id = id, "store push error: {}", err)
                         }
                     }
                 };
@@ -133,13 +181,13 @@ pub trait MessageSubscriber {
                 tip,
                 model: _,
             } => {
-                if store
-                    .exists(None, Some(stream.parse()?))
-                    .await
-                    .unwrap_or(true)
-                {
+                if let Some(tip_old) = store.get(None, Some(stream.parse()?)).await? {
+                    if tip_old.to_string() == tip {
+                        tracing::info!(?network, ?stream, ?tip, "update tip not changed");
+                        return Ok(());
+                    }
                     if let Err(err) = store.push(None, Some(stream.parse()?), tip.parse()?).await {
-                        log::error!("store push error: {}", err)
+                        tracing::error!(stream, tip, "store push error: {}", err)
                     }
                 }
             }
@@ -160,32 +208,10 @@ impl MessageSubscriber for Client {
 
         if let PubsubSubPostResponse::Success(body) = sub {
             let store = Arc::clone(&store);
-            let events_handle = tokio::task::spawn(
-                body.for_each_concurrent(None, move |event| {
-                    let store = Arc::clone(&store);
-                    async move {
-                        if let std::result::Result::Ok(data) = event {
-                            let msg_resp: MessageResponse =
-                                serde_json::from_slice(&data).expect("should be json message");
-                            let msg_data = multibase::decode(msg_resp.data).unwrap().1;
-                            if let Ok(msg) = serde_json::from_slice::<Message>(&msg_data) {
-                                tracing::info!(?network, ?msg, "kubo sub receive msg");
-                                if let Err(err) = Self::message_handler(store, msg.clone()).await {
-                                    tracing::error!(
-                                        ?network,
-                                        ?msg,
-                                        "message handler error: {}",
-                                        err
-                                    )
-                                };
-                            }
-                        };
-                    }
-                })
-                .map(|_| ()),
-            );
-
-            events_handle.await?;
+            let handler = body.for_each_concurrent(None, move |event| {
+                self.kubo_message_handler(network, store.clone(), event)
+            });
+            handler.await;
             return Ok(());
         }
         anyhow::bail!("subscribe failed")
@@ -224,6 +250,44 @@ impl MessageUpdatePublisher for Client {
             .await?;
         if let PubsubPubPostResponse::BadRequest(resp) = res {
             anyhow::bail!(resp.message);
+        }
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+pub trait MessageResponsePublisher {
+    async fn publish_response(
+        &self,
+        network: &Network,
+        id: &String,
+        stream_id: &StreamId,
+        tip: &Cid,
+    ) -> anyhow::Result<()>;
+}
+
+#[async_trait::async_trait]
+impl MessageResponsePublisher for Client {
+    async fn publish_response(
+        &self,
+        network: &Network,
+        id: &String,
+        stream_id: &StreamId,
+        tip: &Cid,
+    ) -> anyhow::Result<()> {
+        let msg = json!({
+            "typ": 2,
+            "id": id,
+            "tips": {
+                stream_id.to_string(): tip.to_string(),
+            }
+        });
+        let file = serde_json::to_vec(&msg)?;
+        let res = self
+            .pubsub_pub_post(network.kubo_topic(), swagger::ByteArray(file))
+            .await?;
+        if let PubsubPubPostResponse::BadRequest(resp) = res {
+            anyhow::bail!("failed to post msg to kubo: {}", resp.message);
         }
         Ok(())
     }
@@ -269,7 +333,7 @@ impl EventsUploader for Client {
             None => anyhow::bail!("input commits of {} is empty", stream_id),
         };
 
-        let state = StreamState::new(stream_id.r#type.int_value(), commits.clone())?;
+        let state = StreamState::make(stream_id.r#type.int_value(), commits.clone()).await?;
         let model = state.must_model()?;
 
         for commit in commits {

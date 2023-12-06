@@ -88,6 +88,9 @@ impl StreamFileTrait for Client {
             .await?;
         let model_id = &stream_state.must_model()?;
         let model = dapp::get_model(model_id).await?;
+        if model.dapp_id != dapp_id.clone() {
+            anyhow::bail!("stream_id {} not belong to dapp {}", stream_id, dapp_id);
+        }
         match model.name.as_str() {
             "indexFile" => {
                 let index_file = serde_json::from_value::<IndexFile>(stream_state.content.clone())?;
@@ -280,7 +283,7 @@ impl StreamEventSaver for Client {
                 };
                 // check if commit already exists
                 if commits.iter().any(|ele| ele.cid == event.cid) {
-                    return stream.state(commits);
+                    return stream.state(commits).await;
                 }
 
                 if let Some(prev) = event.prev()? {
@@ -289,7 +292,7 @@ impl StreamEventSaver for Client {
                     }
                 }
                 commits.push(event.clone());
-                let state = stream.state(commits)?;
+                let state = stream.state(commits).await?;
 
                 let model = state.must_model()?;
                 let opts = vec![

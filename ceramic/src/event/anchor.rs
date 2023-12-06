@@ -1,7 +1,11 @@
+use std::str::FromStr;
+
 use libipld::cid::Cid;
 use libipld::{cbor::DagCborCodec, codec::Codec};
+use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 
+use crate::network;
 use crate::stream::StreamState;
 
 use super::StreamStateApplyer;
@@ -43,14 +47,21 @@ pub struct AnchorProof {
 }
 
 impl AnchorProof {
-    pub fn tx_hash(&self) -> anyhow::Result<String> {
+    pub fn tx_hash(&self) -> anyhow::Result<H256> {
         cid_to_eth_hash(self.tx_hash)
+    }
+
+    pub fn chain(&self) -> anyhow::Result<network::Chain> {
+        network::Chain::from_str(&self.chain_id)
     }
 }
 
-pub fn cid_to_eth_hash(tx_hash: Cid) -> anyhow::Result<String> {
+pub fn cid_to_eth_hash(tx_hash: Cid) -> anyhow::Result<H256> {
     let digest = tx_hash.hash().digest();
-    Ok(format!("0x{}", hex::encode(digest)))
+    // convert digest to H256
+    let mut bytes = [0u8; 32];
+    bytes.copy_from_slice(&digest);
+    Ok(H256::from(bytes))
 }
 
 impl Into<crate::stream::AnchorProof> for AnchorProof {
@@ -88,14 +99,15 @@ mod tests {
 
     #[test]
     fn convert_tx_hash() {
-        let tx_cid: Cid = "bagjqcgzarunrbdmaxof2kcufryoazwfc36zhltmq4fu73n4cmlytb7kt2tka"
+        let tx_cid: Cid = "bagjqcgzadnfurovpwv4pzlbpvtcy4ushtwr2zlsd3ilny55pwgiwm5f6ngmq"
             .parse()
             .unwrap();
         let tx_hash = cid_to_eth_hash(tx_cid);
         assert!(tx_hash.is_ok());
+        let tx_hash_str = format!("0x{:?}", tx_hash.unwrap());
         assert_eq!(
-            tx_hash.unwrap(),
-            "0x8d1b108d80bb8ba50a858e1c0cd8a2dfb275cd90e169fdb78262f130fd53d4d4"
+            tx_hash_str,
+            "0x1b4b48baafb578fcac2facc58e52479da3acae43da16dc77afb1916674be6999"
         );
     }
 }

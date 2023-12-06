@@ -74,7 +74,7 @@ impl<T: EventsLoader + Sync> PolicyStreamLoader for T {
                     }
                 }
             }
-            event.apply_to(&mut stream_state)?;
+            event.apply_to(&mut stream_state).await?;
         }
 
         Ok(stream_state)

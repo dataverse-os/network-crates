@@ -21,7 +21,7 @@ impl Model {
     }
 }
 
-pub static MODEL_STORE: Lazy<Mutex<ModelStore>> = Lazy::new(|| Mutex::new(ModelStore::new()));
+static MODEL_STORE: Lazy<Mutex<ModelStore>> = Lazy::new(|| Mutex::new(ModelStore::new()));
 
 pub struct ModelStore {
     client: dapp_table_client::Client,
