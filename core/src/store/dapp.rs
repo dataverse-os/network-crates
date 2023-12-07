@@ -31,11 +31,8 @@ pub struct ModelStore {
 }
 
 pub async fn get_dapp_ceramic(dapp_id: &uuid::Uuid) -> anyhow::Result<Ceramic> {
-    MODEL_STORE
-        .lock()
-        .await
-        .get_dapp_ceramic(dapp_id, true)
-        .await
+    let mut store = MODEL_STORE.lock().await;
+    store.get_dapp_ceramic(dapp_id, true).await
 }
 
 pub async fn get_ceramic(ceramic_str: &String) -> anyhow::Result<Ceramic> {
@@ -43,11 +40,8 @@ pub async fn get_ceramic(ceramic_str: &String) -> anyhow::Result<Ceramic> {
 }
 
 pub async fn get_model_by_name(dapp_id: &uuid::Uuid, model_name: &str) -> anyhow::Result<Model> {
-    MODEL_STORE
-        .lock()
-        .await
-        .get_model_by_name(dapp_id, model_name, true)
-        .await
+    let mut store = MODEL_STORE.lock().await;
+    store.get_model_by_name(dapp_id, model_name, true).await
 }
 
 pub async fn get_model(model_id: &StreamId) -> anyhow::Result<Model> {

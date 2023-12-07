@@ -7,11 +7,9 @@ pub mod operator;
 pub mod signed;
 pub mod verify;
 
-use crate::network;
 use crate::stream::{LogType, StreamState};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use ceramic_http_client::api::StateLog;
-use ethers_providers::Middleware;
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid};
 use serde::{Deserialize, Serialize};
@@ -66,35 +64,10 @@ impl Event {
             EventValue::Anchor(anchor) => {
                 anchor.apply_to(state)?;
 
-                if let Some(proof) = anchor.proof()? {
-                    let provider = network::provider(proof.chain()?).await?;
-                    let transaction_hash = proof.tx_hash()?;
-                    let tx = match provider.get_transaction(transaction_hash).await? {
-                        Some(tx) => tx,
-                        None => {
-                            tracing::warn!(
-                                event_id = self.cid.to_string(),
-                                transaction_hash = transaction_hash.to_string(),
-                                "transaction not found"
-                            );
-                            anyhow::bail!("transaction not found: {}", transaction_hash)
-                        }
-                    };
-                    let block_hash = tx.block_hash.context("no block hash")?;
-                    let block = match provider.get_block(block_hash).await? {
-                        Some(block) => block,
-                        None => {
-                            tracing::warn!(
-                                event_id = self.cid.to_string(),
-                                transaction_hash = transaction_hash.to_string(),
-                                block_hash = block_hash.to_string(),
-                                "block not found"
-                            );
-                            anyhow::bail!("block not found block_hash: {}", block_hash)
-                        }
-                    };
-                    state_log.timestamp = Some(block.timestamp.as_u64() as i64);
-                };
+                // if let Some(proof) = anchor.proof()? {
+                //     let timestamp = network::timestamp(proof).await?;
+                //     state_log.timestamp = Some(timestamp);
+                // };
             }
         };
         state.log.push(state_log);

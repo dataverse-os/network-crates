@@ -78,7 +78,7 @@ struct IndexFileProcessor {
 }
 
 struct ModelState {
-    app_id: uuid::Uuid,
+    dapp_id: uuid::Uuid,
 }
 
 #[async_trait::async_trait]
@@ -131,7 +131,10 @@ impl Policy for IndexFileProcessor {
 }
 
 impl IndexFileProcessor {
-    fn validate_file_type_modify_constraint(data: &Value, _value: &Value) -> Result<()> {
+    pub fn validate_file_type_modify_constraint(
+        data: &Value,
+        _value: &Value,
+    ) -> anyhow::Result<()> {
         let index_file: IndexFile = serde_json::from_value(data.clone())?;
         if index_file.file_type == IndexFileType::Payable as u64 {
             anyhow::bail!("file type cannot be changed");
@@ -139,13 +142,14 @@ impl IndexFileProcessor {
         Ok(())
     }
 
-    async fn validate_content_id(&self, content_id: &str) -> Result<()> {
+    pub async fn validate_content_id(&self, content_id: &str) -> anyhow::Result<()> {
         if let Ok(stream_id) = StreamId::from_str(content_id) {
             let state = self.stream_store.get_stream(&stream_id).await?;
-            // let model = dapp::get_model(&state.model()?).await?;
-            // if model.app_id != self.state.app_id {
-            //     anyhow::bail!("stream not in same app");
-            // }
+            let model_id = state.must_model()?;
+            let model = dapp::get_model(&model_id).await?;
+            if model.dapp_id != self.state.dapp_id {
+                anyhow::bail!("stream not in same app");
+            }
             // TODO check streamId not fs stream
             // TODO check streamId is Dapp stream
             // TODO check streamId can get from ceramic
@@ -153,7 +157,7 @@ impl IndexFileProcessor {
         Ok(())
     }
 
-    async fn validate_content(
+    pub async fn validate_content(
         &self,
         content_id: &String,
         content_type: &ContentType,
@@ -178,14 +182,14 @@ impl IndexFileProcessor {
         Ok(())
     }
 
-    async fn validate_acl(&self, acl: &AccessControl) -> Result<()> {
+    pub async fn validate_acl(&self, acl: &AccessControl) -> Result<()> {
         if let Some(p) = &acl.encryption_provider {
             let linked_ceramic_models = p.linked_ceramic_models()?;
             for ele in linked_ceramic_models {
-                // let model = dapp::get_model(&ele).await?;
-                // if model.app_id != self.state.app_id {
-                //     anyhow::bail!("linked model not in same app");
-                // }
+                let model = dapp::get_model(&ele).await?;
+                if model.dapp_id != self.state.dapp_id {
+                    anyhow::bail!("linked model not in same app");
+                }
             }
         }
 
@@ -241,5 +245,13 @@ mod tests {
           "contentType": "eyJyZXNvdXJjZSI6IkNFUkFNSUMiLCJyZXNvdXJjZUlkIjoia2p6bDZodmZyYnc2Y2F0ZWszNmgzcGVwMDlrOWd5bWZubGE5azZvamxncm13am9ndmpxZzhxM3pweWJsMXl1In0",
           "accessControl": "eyJlbmNyeXB0aW9uUHJvdmlkZXIiOnsicHJvdG9jb2wiOiJMaXQiLCJlbmNyeXB0ZWRTeW1tZXRyaWNLZXkiOiI1ODczNjBmMjc3MjUwM2FiZDI0Y2Y2M2RhMjI1MDAwNWNhYjc3ZDlhNjY4NTUyZTdiZDM3MjhlOGE3M2UzMGQ0YzQ2Mjc5NjExZDI5ZDgwN2JmZWVlNThjMGY4ZDFlMGRjNGJhOWI5MWMxMTMwYWUxMWZlZGViZDdlYzdmODkzNGJjZWNkZGQ3MTdlMjRhOTkyNDU1OTY3MjhjNTAxZGI5MjU1YjhiYTFmN2ZhYWIxOWFiOTk2ZjZkZjAzYWI3OTQwZWVmMmVlZGU0ZDMxODIxYTE4NGY5YzVjYmFkMjVlNWViYjE0OTczNjM0NjJlZGUyZmZmNTU1Yjk3MDQ0MzhhMDAwMDAwMDAwMDAwMDAyMGRjNTAzZjExZjdjNmU3MGM0NDMyZWY5ZjdhYjZhM2E4ZDgwNWZhY2YxNjlkMmFlNmYwYjY2MmZhY2VmM2E0YTk1ZDczMGY5OTFlZTBmMjhiZjk5N2ViODcxMDIwMDBiNiIsImRlY3J5cHRpb25Db25kaXRpb25zIjpbeyJjb25kaXRpb25UeXBlIjoiZXZtQmFzaWMiLCJjb250cmFjdEFkZHJlc3MiOiIiLCJzdGFuZGFyZENvbnRyYWN0VHlwZSI6IlNJV0UiLCJjaGFpbiI6ImV0aGVyZXVtIiwibWV0aG9kIjoiIiwicGFyYW1ldGVycyI6WyI6cmVzb3VyY2VzIl0sInJldHVyblZhbHVlVGVzdCI6eyJjb21wYXJhdG9yIjoiY29udGFpbnMiLCJ2YWx1ZSI6ImNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmNhZ3Q2OTRpaW0yd3VlY3U3ZXVtZWRzN3FkMHA2dXptOGRucXNxNjlsbDdrYWNtMDVndSJ9fSx7Im9wZXJhdG9yIjoiYW5kIn0seyJjb25kaXRpb25UeXBlIjoiZXZtQmFzaWMiLCJjb250cmFjdEFkZHJlc3MiOiIiLCJzdGFuZGFyZENvbnRyYWN0VHlwZSI6IlNJV0UiLCJjaGFpbiI6ImV0aGVyZXVtIiwibWV0aG9kIjoiIiwicGFyYW1ldGVycyI6WyI6cmVzb3VyY2VzIl0sInJldHVyblZhbHVlVGVzdCI6eyJjb21wYXJhdG9yIjoiY29udGFpbnMiLCJ2YWx1ZSI6ImNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM3Z3U4OGc2NnoyOG44MWxjcGJnNmh1MnQ4cHUycHVpMHNmbnB2c3JocW4za3hoOXhhaSJ9fSx7Im9wZXJhdG9yIjoiYW5kIn0seyJjb25kaXRpb25UeXBlIjoiZXZtQmFzaWMiLCJjb250cmFjdEFkZHJlc3MiOiIiLCJzdGFuZGFyZENvbnRyYWN0VHlwZSI6IlNJV0UiLCJjaGFpbiI6ImV0aGVyZXVtIiwibWV0aG9kIjoiIiwicGFyYW1ldGVycyI6WyI6cmVzb3VyY2VzIl0sInJldHVyblZhbHVlVGVzdCI6eyJjb21wYXJhdG9yIjoiY29udGFpbnMiLCJ2YWx1ZSI6ImNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmM4Nmd0OWo0MTV5dzJ4OHN0bWtvdGNyenBldXRyYmtwNDJpNHo5MGdwNWlicHR6NHNzbyJ9fSx7Im9wZXJhdG9yIjoiYW5kIn0seyJjb25kaXRpb25UeXBlIjoiZXZtQmFzaWMiLCJjb250cmFjdEFkZHJlc3MiOiIiLCJzdGFuZGFyZENvbnRyYWN0VHlwZSI6IlNJV0UiLCJjaGFpbiI6ImV0aGVyZXVtIiwibWV0aG9kIjoiIiwicGFyYW1ldGVycyI6WyI6cmVzb3VyY2VzIl0sInJldHVyblZhbHVlVGVzdCI6eyJjb21wYXJhdG9yIjoiY29udGFpbnMiLCJ2YWx1ZSI6ImNlcmFtaWM6Ly8qP21vZGVsPWtqemw2aHZmcmJ3NmNhdGVrMzZoM3BlcDA5azlneW1mbmxhOWs2b2psZ3Jtd2pvZ3ZqcWc4cTN6cHlibDF5dSJ9fSx7Im9wZXJhdG9yIjoiYW5kIn0sW3siY29uZGl0aW9uVHlwZSI6ImV2bUJhc2ljIiwiY29udHJhY3RBZGRyZXNzIjoiIiwic3RhbmRhcmRDb250cmFjdFR5cGUiOiIiLCJjaGFpbiI6ImV0aGVyZXVtIiwibWV0aG9kIjoiIiwicGFyYW1ldGVycyI6WyI6dXNlckFkZHJlc3MiXSwicmV0dXJuVmFsdWVUZXN0Ijp7ImNvbXBhcmF0b3IiOiI9IiwidmFsdWUiOiIweDMxMmVBODUyNzI2RTNBOWY2MzNBMDM3N2MwZWE4ODIwODZkNjY2NjYifX0seyJvcGVyYXRvciI6Im9yIn0seyJjb250cmFjdEFkZHJlc3MiOiIweDg2NzNmMjFCMzQzMTlCRDA3MDlBN2E1MDFCRDBmZEI2MTRBMGE3QTEiLCJjb25kaXRpb25UeXBlIjoiZXZtQ29udHJhY3QiLCJmdW5jdGlvbk5hbWUiOiJpc0NvbGxlY3RlZCIsImZ1bmN0aW9uUGFyYW1zIjpbIjp1c2VyQWRkcmVzcyJdLCJmdW5jdGlvbkFiaSI6eyJpbnB1dHMiOlt7ImludGVybmFsVHlwZSI6ImFkZHJlc3MiLCJuYW1lIjoidXNlciIsInR5cGUiOiJhZGRyZXNzIn1dLCJuYW1lIjoiaXNDb2xsZWN0ZWQiLCJvdXRwdXRzIjpbeyJpbnRlcm5hbFR5cGUiOiJib29sIiwibmFtZSI6IiIsInR5cGUiOiJib29sIn1dLCJzdGF0ZU11dGFiaWxpdHkiOiJ2aWV3IiwidHlwZSI6ImZ1bmN0aW9uIn0sImNoYWluIjoibXVtYmFpIiwicmV0dXJuVmFsdWVUZXN0Ijp7ImtleSI6IiIsImNvbXBhcmF0b3IiOiI9IiwidmFsdWUiOiJ0cnVlIn19XV0sImRlY3J5cHRpb25Db25kaXRpb25zVHlwZSI6IlVuaWZpZWRBY2Nlc3NDb250cm9sQ29uZGl0aW9uIn0sIm1vbmV0aXphdGlvblByb3ZpZGVyIjp7InByb3RvY29sIjoiTGVucyIsImJhc2VDb250cmFjdCI6IjB4NzU4MjE3N0Y5RTUzNmFCMGI2YzcyMWUxMWYzODNDMzI2RjJBZDFENSIsInVuaW9uQ29udHJhY3QiOiIweDc1ODIxNzdGOUU1MzZhQjBiNmM3MjFlMTFmMzgzQzMyNkYyQWQxRDUiLCJjaGFpbklkIjo4MDAwMSwiZGF0YXRva2VuSWQiOiIweDg2NzNmMjFCMzQzMTlCRDA3MDlBN2E1MDFCRDBmZEI2MTRBMGE3QTEifX0"
         });
+
+        let index_file = serde_json::from_value::<IndexFile>(index_file);
+        assert!(index_file.is_ok());
+        let index_file = index_file.unwrap();
+        assert_eq!(
+            index_file.file_name,
+            "lfcMzQrSOjIdBDupp2Or9Gdp1qrnrcQcCov2t9m34ec"
+        );
     }
 }

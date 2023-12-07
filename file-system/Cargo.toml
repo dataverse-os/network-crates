@@ -14,7 +14,6 @@ ceramic-core = { workspace = true }
 ceramic-event = { workspace = true }
 ceramic-http-client = { workspace = true }
 chrono = { workspace = true }
-clap = { version = "4", features = ["derive", "env"] }
 dag-jose = "0.1.2"
 dapp-table-client = { workspace = true }
 dataverse-ceramic = { workspace = true }

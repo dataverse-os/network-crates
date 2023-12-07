@@ -172,6 +172,22 @@ impl Client {
         Ok(())
     }
 
+    async fn load_stream_with_model(
+        &self,
+        model_id: &StreamId,
+        stream_id: &StreamId,
+    ) -> anyhow::Result<Stream> {
+        let doc = &self.lookup_model_doc(&model_id).await?;
+        let key = stream_id.to_vec()?;
+        let mut stream = doc.get_many(Query::key_exact(key)).await?;
+        if let Some(entry) = stream.try_next().await? {
+            let content = doc.read_to_bytes(&entry).await?;
+            let content: Stream = serde_json::from_slice(&content)?;
+            return Ok(content);
+        }
+        anyhow::bail!("stream `{}` not found in model `{}`", stream_id, model_id)
+    }
+
     async fn list_stream_in_model(&self, model_id: &StreamId) -> anyhow::Result<Vec<Stream>> {
         let doc: Doc = self.lookup_model_doc(model_id).await?;
         let mut stream = doc.get_many(Query::all()).await?;
@@ -205,21 +221,17 @@ impl StreamStore for Client {
     }
 
     async fn load_stream(&self, stream_id: &StreamId) -> anyhow::Result<Option<Stream>> {
-        let model_id = self.get_model_of_stream(stream_id).await?;
-        let key = stream_id.to_vec()?;
+        if let Ok(model_id) = self.get_model_of_stream(stream_id).await {
+            if let Ok(stream) = self.load_stream_with_model(&model_id, stream_id).await {
+                return Ok(Some(stream));
+            }
+            tracing::warn!(
+                stream_id = stream_id.to_string(),
+                model_id = model_id.to_string(),
+                "looking for stream not found",
+            );
+        };
 
-        let doc = &self.lookup_model_doc(&model_id).await?;
-        let mut stream = doc.get_many(Query::key_exact(key)).await?;
-        if let Some(entry) = stream.try_next().await? {
-            let content = doc.read_to_bytes(&entry).await?;
-            let content: Stream = serde_json::from_slice(&content)?;
-            return Ok(Some(content));
-        }
-        log::warn!(
-            "looking for stream `{}`: not found in model `{}`",
-            stream_id,
-            model_id
-        );
         Ok(None)
     }
 }
@@ -284,6 +296,11 @@ impl kubo::Store for Client {
         stream_id: Option<StreamId>,
     ) -> anyhow::Result<Option<Cid>> {
         if let Some(stream_id) = &stream_id {
+            if let Ok(model_id) = self.get_model_of_stream(stream_id).await {
+                let stream = self.load_stream_with_model(&model_id, stream_id).await?;
+                return Ok(Some(stream.tip));
+            }
+
             return self
                 .load_stream(stream_id)
                 .await

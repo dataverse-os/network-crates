@@ -15,11 +15,12 @@ ceramic-http-client = { workspace = true }
 ceramic-kubo-rpc-server = { workspace = true }
 chrono = { workspace = true }
 dag-jose = "0.1.3"
-ethers-providers = "2.0.11"
+ethers-core = { version = "2.0.11", default-features = false }
+ethers-providers = { version = "2.0.11", default-features = false }
 expect-test = "1.4.1"
 fang = { workspace = true }
 futures = { workspace = true }
-futures-util = "0.3.29"
+futures-util = { workspace = true }
 hex = { workspace = true }
 int-enum = { workspace = true }
 json-patch = "1.2.0"

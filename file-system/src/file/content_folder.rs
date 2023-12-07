@@ -1,7 +1,7 @@
-struct ContentFolder {
-    fs_version: String,
-    index_folder_id: String,
-    mirror_file_ids: Vec<String>,
-    encrypted_file_keys: Option<String>,
-    reserved: Option<String>,
+pub struct ContentFolder {
+    pub fs_version: String,
+    pub index_folder_id: String,
+    pub mirror_file_ids: Vec<String>,
+    pub encrypted_file_keys: Option<String>,
+    pub reserved: Option<String>,
 }

@@ -66,7 +66,7 @@ impl Policy for ActionFileProcessor {
 
 impl ActionFileProcessor {
     // check resource id is type index_file or union_folder
-    async fn check_resource_id(&self, realoation_id: StreamId) -> anyhow::Result<()> {
+    pub async fn check_resource_id(&self, _realoation_id: StreamId) -> anyhow::Result<()> {
         Ok(())
     }
 }
