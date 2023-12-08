@@ -42,11 +42,12 @@ impl Clone for SignedValue {
 
 impl SignedValue {
     pub fn payload(&self) -> anyhow::Result<Payload> {
-        if let Some(linked_block) = self.linked_block.clone() {
-            let payload = Payload::try_from(linked_block)?;
-            Ok(payload)
-        } else {
-            anyhow::bail!("linked_block is none")
+        match self.linked_block.clone() {
+            Some(linked_block) => {
+                let payload = Payload::try_from(linked_block)?;
+                Ok(payload)
+            }
+            None => anyhow::bail!("linked_block is none"),
         }
     }
 
@@ -429,16 +430,27 @@ mod tests {
             54, 100, 54, 54, 54, 54, 54,
         ];
 
-        // Act
         let result = IpldDecodeFrom::<Payload>::decode(&data);
 
-        // Assert
         assert!(result.is_ok());
         let payload = result.unwrap();
+
         assert_eq!(payload.prev, None);
         assert_eq!(payload.id, None);
+
         assert!(payload.data.is_some());
-        let data = payload.data;
-        assert!(data.is_some());
+
+        assert!(payload.header.is_some());
+        let header = payload.header.unwrap();
+        let metadata = header.to_metadata();
+        assert_eq!(
+            metadata,
+            serde_json::json!({
+                "controllers": [
+                    "did:pkh:eip155:1:0x312eA852726E3A9f633A0377c0ea882086d66666"
+                ],
+                "model": "kjzl6hvfrbw6c5qdzwi9esxvt1v5mtt7od7hb2947624mn4u0rmq1rh9anjcnxx"
+            }),
+        );
     }
 }

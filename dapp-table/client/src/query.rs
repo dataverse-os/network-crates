@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use graphql_client::{GraphQLQuery, Response};
 
@@ -31,7 +31,10 @@ impl Client {
             .send()
             .await?;
         let response_body: Response<get_dapp::ResponseData> = res.json().await?;
-        let dapp = response_body.data.expect("missing response data").get_dapp;
+        let dapp = response_body
+            .data
+            .context("missing response data")?
+            .get_dapp;
         Ok(dapp)
     }
 

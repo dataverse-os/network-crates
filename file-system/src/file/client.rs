@@ -89,7 +89,12 @@ impl StreamFileTrait for Client {
         let model_id = &stream_state.must_model()?;
         let model = dapp::get_model(model_id).await?;
         if model.dapp_id != dapp_id.clone() {
-            anyhow::bail!("stream_id {} not belong to dapp {}", stream_id, dapp_id);
+            anyhow::bail!(
+                "stream_id {} with model_id {} not belong to dapp {}",
+                stream_id,
+                model_id,
+                dapp_id
+            );
         }
         match model.name.as_str() {
             "indexFile" => {
