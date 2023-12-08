@@ -8,6 +8,8 @@ use dataverse_core::store::dapp;
 use dataverse_core::stream::{Stream, StreamStore};
 use int_enum::IntEnum;
 
+use crate::file::status::Status;
+
 use super::index_file::IndexFile;
 use super::FileModel;
 use super::{operator::StreamFileLoader, StreamFile};
@@ -138,7 +140,7 @@ impl StreamFileTrait for Client {
                             "failed load index file model {}",
                             err
                         );
-                        file.verified_status = -1;
+                        file.write_status(Status::NakedStream(stream_id.clone().to_string()));
                     }
                 }
                 Ok(file)
@@ -230,7 +232,9 @@ impl StreamFileTrait for Client {
                     .into_iter()
                     .map(|(_, mut file)| {
                         if file.file_id.is_none() {
-                            file.verified_status = -1;
+                            if let Some(content_id) = file.content_id.clone() {
+                                file.write_status(Status::NakedStream(content_id));
+                            }
                         }
                         file
                     })

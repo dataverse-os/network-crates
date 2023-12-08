@@ -1,5 +1,6 @@
 pub mod client;
 pub mod operator;
+pub mod status;
 
 pub mod access_control;
 pub mod action_file;
@@ -21,6 +22,8 @@ use ceramic_core::StreamId;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
 
+use self::status::Status;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StreamFile {
@@ -39,7 +42,9 @@ pub struct StreamFile {
     pub content: Option<Value>,
 
     pub controller: String,
-    pub verified_status: i64,
+    pub verified_status: Status,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified_status_desc: Option<String>,
 }
 
 impl Default for StreamFile {
@@ -51,8 +56,9 @@ impl Default for StreamFile {
             content_id: Default::default(),
             model_id: Default::default(),
             content: Default::default(),
-            verified_status: Default::default(),
             controller: Default::default(),
+            verified_status: Default::default(),
+            verified_status_desc: Default::default(),
         }
     }
 }
@@ -92,6 +98,11 @@ impl StreamFile {
             .context("no controller")?
             .clone();
         Ok(())
+    }
+
+    pub fn write_status(&mut self, status: Status) {
+        self.verified_status = status.clone();
+        self.verified_status_desc = Some(status.to_string());
     }
 }
 
