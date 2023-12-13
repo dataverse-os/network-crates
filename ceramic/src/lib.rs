@@ -7,21 +7,20 @@ pub mod stream;
 
 pub use ceramic_core::StreamId;
 pub use event::commit;
+pub use event::{Event, EventValue, EventsLoader, EventsUploader};
 use serde::{Deserialize, Serialize};
 pub use stream::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ceramic {
-    pub endpoint: String,
-    pub network: network::Network,
+	pub endpoint: String,
+	pub network: network::Network,
 }
 
 impl Ceramic {
-    pub async fn new(endpoint: &str) -> anyhow::Result<Self> {
-        let network = http::Client::network(endpoint).await?;
-        Ok(Self {
-            endpoint: endpoint.to_string(),
-            network,
-        })
-    }
+	pub async fn new(endpoint: &str) -> anyhow::Result<Self> {
+		let network = http::Client::network(endpoint).await?;
+		let endpoint = endpoint.into();
+		Ok(Self { endpoint, network })
+	}
 }

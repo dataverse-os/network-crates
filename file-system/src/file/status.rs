@@ -1,27 +1,16 @@
-use std::fmt::Display;
-
+use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 
 /// Error type for file operations.
 #[repr(i64)]
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, IntEnum)]
 pub enum Status {
-    NakedStream(String) = -1,
-    None = 0,
-}
-
-impl Display for Status {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Status::NakedStream(s) => s,
-            Status::None => "None",
-        };
-        write!(f, "{}", s)
-    }
+	NakedStream = -1,
+	None = 0,
 }
 
 impl Default for Status {
-    fn default() -> Self {
-        Self::None
-    }
+	fn default() -> Self {
+		Self::None
+	}
 }
