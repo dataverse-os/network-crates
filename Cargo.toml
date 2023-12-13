@@ -5,8 +5,7 @@ members = [
   "core",
   "dapp-table/client",
   "file-system",
-  "iroh-store",
-  "pgsql-store"
+  "iroh-store"
 ]
 
 [workspace.dependencies]

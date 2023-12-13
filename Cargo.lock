@@ -1759,18 +1759,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dataverse-pgsql-store"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "ceramic-core",
- "dataverse-ceramic",
- "diesel",
- "serde_json",
-]
-
-[[package]]
 name = "decoded-char"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
