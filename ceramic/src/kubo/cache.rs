@@ -1,17 +1,17 @@
 extern crate lru;
 
-use ceramic_core::Cid;
+use ceramic_core::{Cid, StreamId};
 use fang::{AsyncQueue, AsyncQueueable, NoTls};
 use lru::LruCache;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::Mutex;
 
-use crate::StreamLoader;
+use crate::{http, Ceramic, Event, EventValue, StreamLoader};
 
 use super::{
 	message::MessagePublisher,
 	task::{BlockUploadHandler, UpdateMessagePublishHandler},
-	BlockUploader, CidLoader, Client,
+	AnchorRuester, BlockUploader, CidLoader, Client,
 };
 
 pub struct Cached {
@@ -84,6 +84,28 @@ impl MessagePublisher for Cached {
 		if let Err(err) = self.queue.lock().await.insert_task(&task).await {
 			log::error!("failed to insert task: {}", err);
 		};
+		Ok(())
+	}
+}
+
+#[async_trait::async_trait]
+impl AnchorRuester for Cached {
+	async fn request_anchor(
+		&self,
+		ceramic: &Ceramic,
+		stream_id: &StreamId,
+		event: Event,
+	) -> anyhow::Result<()> {
+		if let EventValue::Signed(_) = &event.value {
+			let task = http::EventUploadHandler {
+				ceramic: ceramic.clone(),
+				stream_id: stream_id.clone(),
+				commit: event,
+			};
+			if let Err(err) = self.queue.lock().await.insert_task(&task).await {
+				log::error!("failed to insert task: {}", err);
+			};
+		}
 		Ok(())
 	}
 }

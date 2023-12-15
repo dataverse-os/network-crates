@@ -1,8 +1,8 @@
 use crate::stream::StreamState;
 use crate::EventValue;
+
 use anyhow::Result;
 use ceramic_core::{Base64String, StreamId};
-use dag_jose::DagJoseCodec;
 use json_patch::Patch;
 use libipld::multihash::{Code, MultihashDigest};
 use libipld::prelude::Codec;
@@ -11,8 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use super::cacao::CACAO;
 use super::ipld::IpldAs;
-use super::jws::IpldAsJws;
-use super::StreamStateApplyer;
+use super::{jws, StreamStateApplyer};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SignedValue {
@@ -24,19 +23,7 @@ pub struct SignedValue {
 impl Clone for SignedValue {
 	fn clone(&self) -> Self {
 		Self {
-			jws: ceramic_core::Jws {
-				link: self.jws.link.clone(),
-				payload: self.jws.payload.clone(),
-				signatures: self
-					.jws
-					.signatures
-					.iter()
-					.map(|sig| ceramic_core::JwsSignature {
-						protected: sig.protected.clone(),
-						signature: sig.signature.clone(),
-					})
-					.collect::<Vec<_>>(),
-			},
+			jws: jws::clone_jws(&self.jws),
 			linked_block: self.linked_block.clone(),
 			cacao_block: self.cacao_block.clone(),
 		}
@@ -67,9 +54,10 @@ impl TryFrom<Vec<u8>> for SignedValue {
 	type Error = anyhow::Error;
 
 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		let node: Ipld = DagJoseCodec.decode(&value)?;
+		let super::jws::Jws(jws) = value.try_into()?;
+
 		Ok(SignedValue {
-			jws: node.decode_jws()?,
+			jws,
 			linked_block: None,
 			cacao_block: None,
 		})

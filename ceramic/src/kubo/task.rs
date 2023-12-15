@@ -12,7 +12,7 @@ use super::{BlockUploader, Client};
 
 static KUBO: OnceLock<Client> = OnceLock::new();
 
-pub async fn init_kubo(base_path: &str) {
+pub fn init_kubo(base_path: &str) {
 	KUBO.get_or_init(|| super::new(base_path));
 }
 
@@ -42,15 +42,17 @@ impl AsyncRunnable for BlockUploadHandler {
 		let kubo = get_kubo().await?;
 
 		match kubo.block_upload(self.cid, self.block.clone()).await {
-			Ok(_) => Ok(()),
-			Err(err) => Err(FangError {
-				description: format!("Failed to upload block: {:?}", err),
-			}),
+			Ok(_) => {
+				tracing::info!(cid = self.cid.to_string(), "uploading block");
+				Ok(())
+			}
+			Err(err) => {
+				tracing::warn!(cid = self.cid.to_string(), ?err, "uploading block");
+				Err(FangError {
+					description: format!("Failed to upload block: {:?}", err),
+				})
+			}
 		}
-	}
-
-	fn task_type(&self) -> String {
-		"block_upload".into()
 	}
 
 	fn uniq(&self) -> bool {
@@ -73,15 +75,17 @@ impl AsyncRunnable for UpdateMessagePublishHandler {
 
 		let res = kubo.publish_message(&self.topic, self.msg.clone()).await;
 		match res {
-			Ok(_) => Ok(()),
-			Err(err) => Err(FangError {
-				description: format!("Failed to publish message: {:?}", err),
-			}),
+			Ok(_) => {
+				tracing::info!(topic = self.topic, "publishing message");
+				Ok(())
+			}
+			Err(err) => {
+				tracing::warn!(topic = self.topic, ?err, "publishing message");
+				Err(FangError {
+					description: format!("Failed to publish message: {:?}", err),
+				})
+			}
 		}
-	}
-
-	fn task_type(&self) -> String {
-		"update_message_publish".into()
 	}
 
 	fn uniq(&self) -> bool {

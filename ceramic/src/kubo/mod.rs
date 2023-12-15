@@ -8,16 +8,14 @@ pub use cache::Cached;
 pub use store::Store;
 
 use ceramic_core::{Cid, StreamId};
-use ceramic_kubo_rpc_server::{
-	models, ApiNoContext, BlockGetPostResponse, BlockPutPostResponse, ContextWrapperExt,
-};
+use ceramic_kubo_rpc_server::models;
+use ceramic_kubo_rpc_server::{ApiNoContext, ContextWrapperExt};
+use ceramic_kubo_rpc_server::{BlockGetPostResponse, BlockPutPostResponse};
 use int_enum::IntEnum;
 use swagger::{AuthData, ByteArray, ContextBuilder, EmptyContext, Push, XSpanIdString};
 
-use crate::{
-	event::{self, Event, EventsLoader, EventsUploader, ToCid},
-	Ceramic, StreamLoader, StreamState,
-};
+use crate::event::{self, Event, EventsLoader, EventsUploader, ToCid};
+use crate::{Ceramic, StreamLoader, StreamState};
 
 use self::message::MessageUpdatePublisher;
 
@@ -117,11 +115,11 @@ impl BlockUploader for Client {
 
 		match res {
 			BlockPutPostResponse::Success(res) => {
-				tracing::info!(res.key, res.size, "Block uploaded: {:?}", res);
+				tracing::info!(res.key, res.size, "block uploaded");
 				Ok(())
 			}
 			BlockPutPostResponse::BadRequest(err) => {
-				tracing::warn!(error = err.message, "Failed to post block: {:?}", err);
+				tracing::warn!(error = err.message, "bailed to post block: {:?}", err);
 				anyhow::bail!("Failed to post block: {:?}", err)
 			}
 		}
@@ -129,11 +127,11 @@ impl BlockUploader for Client {
 }
 
 #[async_trait::async_trait]
-impl<T: BlockUploader + MessageUpdatePublisher + Send + Sync> EventsUploader for T {
+impl<T: BlockUploader + AnchorRuester + MessageUpdatePublisher + Send + Sync> EventsUploader for T {
 	async fn upload_event(
 		&self,
-		_ceramic: &Ceramic,
-		_stream_id: &StreamId,
+		ceramic: &Ceramic,
+		stream_id: &StreamId,
 		commit: Event,
 	) -> anyhow::Result<()> {
 		match &commit.value {
@@ -152,6 +150,7 @@ impl<T: BlockUploader + MessageUpdatePublisher + Send + Sync> EventsUploader for
 			// don't need to upload it
 			event::EventValue::Anchor(_) => {}
 		}
+		self.request_anchor(&ceramic, &stream_id, commit).await?;
 		Ok(())
 	}
 
@@ -217,5 +216,36 @@ impl<T: CidLoader + Send + Sync> EventsLoader for T {
 			};
 		}
 		Ok(commits)
+	}
+}
+
+#[async_trait::async_trait]
+pub trait AnchorRuester {
+	async fn request_anchor(
+		&self,
+		ceramic: &Ceramic,
+		stream_id: &StreamId,
+		event: Event,
+	) -> anyhow::Result<()>;
+}
+
+#[async_trait::async_trait]
+impl AnchorRuester for Client {
+	async fn request_anchor(
+		&self,
+		ceramic: &Ceramic,
+		stream_id: &StreamId,
+		event: Event,
+	) -> anyhow::Result<()> {
+		let http_operator = crate::http::Client::new();
+
+		let result = http_operator.upload_event(ceramic, stream_id, event).await;
+		match result {
+			Ok(_) => Ok(()),
+			Err(err) => {
+				tracing::warn!("failed to request for anchor: {}", err);
+				Err(err)
+			}
+		}
 	}
 }

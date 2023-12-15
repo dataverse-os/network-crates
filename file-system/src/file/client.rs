@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use chrono::Utc;
 use dataverse_ceramic::event::{Event, EventValue, VerifyOption};
-use dataverse_ceramic::{StreamId, StreamOperator, StreamState};
+use dataverse_ceramic::{StreamId, StreamState};
 use dataverse_core::store::dapp;
 use dataverse_core::stream::{Stream, StreamStore};
 use int_enum::IntEnum;
@@ -13,8 +13,6 @@ use crate::file::status::Status;
 use super::index_file::IndexFile;
 use super::FileModel;
 use super::{operator::StreamFileLoader, StreamFile};
-
-trait StreamFileOperator: StreamFileLoader + StreamOperator + Send + Sync {}
 
 pub struct Client {
 	pub operator: Arc<dyn StreamFileLoader + Send + Sync>,

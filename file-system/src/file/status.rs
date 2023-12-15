@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[repr(i64)]
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, IntEnum)]
 pub enum Status {
+	CACAOExpired = -2,
 	NakedStream = -1,
 	None = 0,
 }

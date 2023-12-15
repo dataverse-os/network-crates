@@ -1,4 +1,4 @@
-use fang::{AsyncQueue, NoTls};
+use fang::{AsyncQueue, AsyncWorkerPool, NoTls};
 
 pub async fn new_queue(dsn: &str, max_pool_size: u32) -> anyhow::Result<AsyncQueue<NoTls>> {
 	let mut queue = AsyncQueue::builder()
@@ -10,4 +10,11 @@ pub async fn new_queue(dsn: &str, max_pool_size: u32) -> anyhow::Result<AsyncQue
 	// Always connect first in order to perform any operation
 	queue.connect(NoTls).await?;
 	return Ok(queue);
+}
+
+pub fn build_pool(queue: AsyncQueue<NoTls>, num: u32) -> AsyncWorkerPool<AsyncQueue<NoTls>> {
+	AsyncWorkerPool::builder()
+		.number_of_workers(num)
+		.queue(queue)
+		.build()
 }
