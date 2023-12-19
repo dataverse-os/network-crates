@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use libipld::cid::Cid;
 use libipld::{cbor::DagCborCodec, codec::Codec};
+use libipld::{ipld, Ipld};
 use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +32,11 @@ impl AnchorValue {
 			None => Ok(None),
 		}
 	}
+
+	pub fn to_vec(&self) -> anyhow::Result<Vec<u8>> {
+		let data: Ipld = self.clone().into();
+		DagCborCodec.encode(&data)
+	}
 }
 
 impl StreamStateApplyer for AnchorValue {
@@ -43,6 +49,17 @@ impl StreamStateApplyer for AnchorValue {
 impl Into<EventValue> for AnchorValue {
 	fn into(self) -> EventValue {
 		EventValue::Anchor(self)
+	}
+}
+
+impl From<AnchorValue> for Ipld {
+	fn from(value: AnchorValue) -> Self {
+		ipld!({
+			"id": value.id,
+			"path": value.path,
+			"prev": value.prev,
+			"proof": value.proof,
+		})
 	}
 }
 
@@ -112,7 +129,31 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn decode_anchor() {
+	fn decode_anchor_value() {
+		let data = vec![
+			164, 98, 105, 100, 216, 42, 88, 38, 0, 1, 133, 1, 18, 32, 5, 185, 148, 108, 194, 105,
+			205, 25, 11, 38, 224, 87, 136, 75, 56, 255, 237, 115, 220, 57, 148, 118, 136, 191, 108,
+			27, 148, 233, 41, 39, 190, 47, 100, 112, 97, 116, 104, 115, 49, 47, 49, 47, 48, 47, 49,
+			47, 48, 47, 48, 47, 48, 47, 48, 47, 49, 47, 48, 100, 112, 114, 101, 118, 216, 42, 88,
+			38, 0, 1, 133, 1, 18, 32, 5, 185, 148, 108, 194, 105, 205, 25, 11, 38, 224, 87, 136,
+			75, 56, 255, 237, 115, 220, 57, 148, 118, 136, 191, 108, 27, 148, 233, 41, 39, 190, 47,
+			101, 112, 114, 111, 111, 102, 216, 42, 88, 37, 0, 1, 113, 18, 32, 105, 16, 244, 6, 0,
+			187, 22, 25, 200, 7, 218, 170, 5, 123, 150, 237, 213, 94, 164, 141, 184, 142, 167, 204,
+			49, 57, 35, 170, 87, 98, 144, 159,
+		];
+		let node: Ipld = DagCborCodec.decode(&data).unwrap();
+		let anchor_value = libipld::serde::from_ipld::<AnchorValue>(node.clone());
+		assert!(anchor_value.is_ok());
+		let anchor_value = anchor_value.unwrap();
+		let anchor_value_ipld: Ipld = anchor_value.into();
+		assert_eq!(anchor_value_ipld, node);
+
+		let encoded = DagCborCodec.encode(&anchor_value_ipld).unwrap();
+		assert_eq!(encoded, data);
+	}
+
+	#[test]
+	fn decode_anchor_proof() {
 		let data = vec![
 			164, 100, 114, 111, 111, 116, 216, 42, 88, 37, 0, 1, 113, 18, 32, 207, 168, 82, 146,
 			21, 182, 223, 25, 66, 200, 254, 64, 1, 34, 102, 17, 253, 203, 63, 115, 212, 223, 233,

@@ -15,15 +15,12 @@ use super::FileModel;
 use super::{operator::StreamFileLoader, StreamFile};
 
 pub struct Client {
-	pub operator: Arc<dyn StreamFileLoader + Send + Sync>,
-	pub stream_store: Arc<dyn StreamStore + Send + Sync>,
+	pub operator: Arc<dyn StreamFileLoader>,
+	pub stream_store: Arc<dyn StreamStore>,
 }
 
 impl Client {
-	pub fn new(
-		operator: Arc<dyn StreamFileLoader + Send + Sync>,
-		stream_store: Arc<dyn StreamStore + Send + Sync>,
-	) -> Self {
+	pub fn new(operator: Arc<dyn StreamFileLoader>, stream_store: Arc<dyn StreamStore>) -> Self {
 		Self {
 			operator,
 			stream_store,
@@ -310,8 +307,13 @@ impl StreamEventSaver for Client {
 				];
 				event.verify_signature(opts)?;
 
-				stream.model = Some(model);
-				stream.tip = event.cid;
+				stream = Stream {
+					model: Some(model),
+					account: state.controllers().first().map(Clone::clone),
+					tip: event.cid,
+					content: state.content.clone(),
+					..stream
+				};
 
 				self.stream_store.save_stream(&stream).await?;
 				self.operator

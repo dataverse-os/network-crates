@@ -8,7 +8,7 @@ pub mod signed;
 pub mod verify;
 
 use crate::stream::{LogType, StreamState};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ceramic_http_client::api::StateLog;
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid};
@@ -28,6 +28,19 @@ pub struct Event {
 }
 
 impl Event {
+	pub fn genesis(&self) -> anyhow::Result<Cid> {
+		match &self.value {
+			EventValue::Signed(signed) => Ok(match signed.is_gensis() {
+				true => self.cid,
+				false => signed
+					.payload()?
+					.id
+					.context("missing id in data event payload")?,
+			}),
+			EventValue::Anchor(anchor) => Ok(anchor.id),
+		}
+	}
+
 	pub fn prev(&self) -> anyhow::Result<Option<Cid>> {
 		match &self.value {
 			EventValue::Signed(e) => Ok(e.payload()?.prev),

@@ -51,7 +51,7 @@ impl Client {
 		data_path: PathBuf,
 		key: SecretKey,
 		key_set: KeySet,
-		operator: Arc<dyn StreamOperator + Send + Sync>,
+		operator: Arc<dyn StreamOperator>,
 	) -> anyhow::Result<Self> {
 		let rt = runtime::Handle::from_current(num_cpus::get())?;
 

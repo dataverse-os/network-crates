@@ -1,6 +1,5 @@
 use ceramic_core::{Cid, StreamId};
-use chrono::{DateTime, Utc};
-use dataverse_ceramic::event::{Event, EventValue};
+use dataverse_ceramic::event::Event;
 use dataverse_ceramic::StreamState;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
@@ -10,11 +9,11 @@ pub struct Stream {
 	pub r#type: u64,
 	pub dapp_id: uuid::Uuid,
 	// pub network: String,
-	pub expiration_time: Option<DateTime<Utc>>,
 	pub genesis: Cid,
 	pub tip: Cid,
+	pub account: Option<String>,
 	pub model: Option<StreamId>,
-	pub published: usize,
+	pub content: serde_json::Value,
 }
 
 impl Stream {
@@ -24,22 +23,15 @@ impl Stream {
 		genesis: &Event,
 		model: Option<StreamId>,
 	) -> anyhow::Result<Self> {
-		if let EventValue::Signed(signed) = &genesis.value {
-			let expiration_time = match signed.cacao()? {
-				Some(cacao) => cacao.p.expiration_time()?,
-				None => None,
-			};
-			return Ok(Stream {
-				r#type,
-				dapp_id: dapp_id.clone(),
-				expiration_time,
-				published: 0,
-				tip: genesis.cid,
-				genesis: genesis.cid,
-				model: model,
-			});
-		}
-		anyhow::bail!("invalid genesis commit");
+		Ok(Stream {
+			r#type,
+			dapp_id: dapp_id.clone(),
+			tip: genesis.cid,
+			genesis: genesis.cid,
+			model,
+			account: None,
+			content: serde_json::Value::Null,
+		})
 	}
 
 	pub fn stream_id(&self) -> anyhow::Result<StreamId> {
@@ -55,7 +47,7 @@ impl Stream {
 }
 
 #[async_trait::async_trait]
-pub trait StreamStore {
+pub trait StreamStore: Sync + Send {
 	async fn save_stream(&self, stream: &Stream) -> anyhow::Result<()>;
 	async fn load_stream(&self, stream_id: &StreamId) -> anyhow::Result<Option<Stream>>;
 }

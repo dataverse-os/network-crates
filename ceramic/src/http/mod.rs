@@ -102,14 +102,12 @@ impl EventsUploader for Client {
 					r#type: stream_id.r#type,
 					block: commit.clone().try_into()?,
 				};
+
+				let cid = commit.cid.to_string();
+				let stream_id = stream_id.to_string();
 				match http_client.create_stream(req).await {
-					Ok(res) => log::info!("publish genesis {} of {}", commit.cid, res.stream_id),
-					Err(err) => tracing::error!(
-						cid = commit.cid.to_string(),
-						stream_id = stream_id.to_string(),
-						"failed to publish genesis: {}",
-						err
-					),
+					Ok(_) => tracing::info!(cid, stream_id, "publish genesis"),
+					Err(err) => tracing::error!(cid, stream_id, ?err, "failed to publish genesis"),
 				};
 			}
 			LogType::Signed => {
@@ -118,14 +116,12 @@ impl EventsUploader for Client {
 					stream_id: stream_id.try_into()?,
 					block: commit.clone().try_into()?,
 				};
+
+				let cid = commit.cid.to_string();
+				let stream_id = stream_id.to_string();
 				match http_client.updat_stream(req).await {
-					Ok(res) => log::info!("publish data {} of {}", commit.cid, res.stream_id),
-					Err(err) => tracing::error!(
-						cid = commit.cid.to_string(),
-						stream_id = stream_id.to_string(),
-						?err,
-						"failed to publish signed"
-					),
+					Ok(_) => tracing::info!(cid, stream_id, "publish data"),
+					Err(err) => tracing::error!(cid, stream_id, ?err, "failed to publish data"),
 				};
 			}
 			_ => anyhow::bail!("invalid log type"),

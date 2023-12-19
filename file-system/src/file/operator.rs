@@ -6,7 +6,7 @@ use dataverse_ceramic::{event::EventsUploader, Ceramic, StreamId, StreamState, S
 use super::index_file::IndexFile;
 
 #[async_trait::async_trait]
-pub trait StreamFileLoader: StreamsLoader + EventsUploader {
+pub trait StreamFileLoader: StreamsLoader + EventsUploader + Send + Sync {
 	async fn load_index_file_by_content_id(
 		&self,
 		ceramic: &Ceramic,
