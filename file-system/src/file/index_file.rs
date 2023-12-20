@@ -141,8 +141,9 @@ impl IndexFileProcessor {
 		Ok(())
 	}
 
+	#[allow(dead_code)]
 	pub async fn validate_content_id(&self, content_id: &str) -> anyhow::Result<()> {
-		if let Ok(stream_id) = StreamId::from_str(content_id) {
+		if let Ok(_stream_id) = StreamId::from_str(content_id) {
 			// let state = self.stream_store.get_stream(&stream_id).await?;
 			// let model_id = state.must_model()?;
 			// let model = dapp::get_model(&model_id).await?;
@@ -167,7 +168,7 @@ impl IndexFileProcessor {
 				log::debug!("content_id {} is ipfs cid", cid);
 			}
 			ContentTypeResourceType::CERAMIC => {
-				if let Some(resource_id) = &content_type.resource_id {
+				if let Some(_resource_id) = &content_type.resource_id {
 					// let model_id: StreamId = resource_id.parse()?;
 					// let content_id: StreamId = content_id.parse()?;
 					// let content = self.stream_store.get_stream(&content_id).await?;
