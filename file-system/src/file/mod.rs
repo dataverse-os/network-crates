@@ -102,7 +102,7 @@ impl StreamFile {
 
 	pub fn write_status(&mut self, status: Status, desc: String) {
 		self.verified_status = status.clone();
-		self.verified_status_desc = Some(desc);
+		self.verified_status_desc = Some(format!("{:?}: {}", status, desc));
 	}
 }
 
