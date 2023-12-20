@@ -182,7 +182,10 @@ impl StreamFileTrait for Client {
 							.operator
 							.load_stream_state(&ceramic, stream_id, None)
 							.await?;
-						file.write_content(content_state)?;
+						if let Err(err) = file.write_content(content_state) {
+							let desc = format!("failed load content file model {}", err);
+							file.write_status(Status::BrokenContent, desc);
+						};
 					}
 					files.push(file);
 				}

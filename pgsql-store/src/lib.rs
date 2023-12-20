@@ -60,6 +60,7 @@ impl Client {
 				result.push(event.clone());
 				tip = event.prev()?;
 			}
+			result.reverse();
 		} else {
 			let mut prev_map: HashMap<Cid, Cid> = HashMap::new();
 			for (cid, event) in &map {
@@ -78,7 +79,6 @@ impl Client {
 				result.push(event.clone());
 				prev = cid.clone();
 			}
-			result.reverse();
 		}
 
 		Ok(result)

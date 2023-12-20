@@ -59,6 +59,25 @@ impl Event {
 	}
 
 	pub async fn apply_to(&self, state: &mut StreamState) -> anyhow::Result<()> {
+		let prev_str = self.prev()?.map(|prev| prev.to_string());
+		match (prev_str, &self.value) {
+			// missing matching prev
+			(Some(prev), _) => {
+				let tip = state.log.last().context("missing last log")?.cid.clone();
+				if prev != tip {
+					{
+						anyhow::bail!("invalid prev cid: {} != {}", prev, tip)
+					}
+				}
+			}
+			// data event missing prev
+			(None, EventValue::Signed(signed)) if !signed.is_gensis() => {
+				anyhow::bail!("invalid genesis event")
+			}
+			// anchor event missing prev
+			(None, EventValue::Anchor(_)) => anyhow::bail!("invalid genesis event"),
+			_ => {}
+		}
 		let mut state_log = StateLog {
 			cid: self.cid.to_string(),
 			r#type: self.log_type() as u64,

@@ -161,7 +161,10 @@ impl StreamStateApplyer for SignedValue {
 				false => {
 					if let Some(data) = &payload.data {
 						let patch: json_patch::Patch = serde_json::from_value(data.clone())?;
-						json_patch::patch(&mut stream_state.content, &patch)?;
+						if let Err(err) = json_patch::patch(&mut stream_state.content, &patch) {
+							tracing::error!(?stream_state.content, ?patch, "failed to patch content: {}", err);
+							return Err(anyhow::anyhow!("failed to patch content: {}", err));
+						};
 					}
 				}
 			}
