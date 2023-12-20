@@ -132,10 +132,10 @@ impl StreamFileTrait for Client {
 						tracing::error!(
 							model_id = index_file_model_id.to_string(),
 							stream_id = stream_id.to_string(),
-							"failed load index file model {}",
+							"failed load index file model: {}",
 							err
 						);
-						let desc = format!("failed load index file model {}", err);
+						let desc = format!("failed load index file model: {}", err);
 						file.write_status(Status::NakedStream, desc);
 					}
 				}

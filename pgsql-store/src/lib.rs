@@ -270,11 +270,24 @@ impl StreamFileLoader for Client {
 		content_id: &String,
 	) -> anyhow::Result<(StreamState, IndexFile)> {
 		let conn = &mut self.pool.get()?;
-		let stream: Option<models::Stream> = schema::streams::table
+		let stream: Result<Option<models::Stream>, _> = schema::streams::table
 			.filter(schema::streams::model_id.eq(index_file_model_id.to_string()))
-			.filter(sql::<Bool>("content->>'contentId' = ?").bind::<Text, _>(content_id))
+			.filter(sql::<Bool>("content->>'contentId' = ").bind::<Text, _>(content_id))
 			.first(conn)
-			.optional()?;
+			.optional();
+
+		let stream: Option<models::Stream> = match stream {
+			Ok(stream) => stream,
+			Err(err) => {
+				tracing::warn!(
+					model_id = index_file_model_id.to_string(),
+					content_id = content_id,
+					?err,
+					"load index file by content_id sql error",
+				);
+				return Err(err.into());
+			}
+		};
 		if let Some(stream) = stream {
 			let stream_id = stream.stream_id()?;
 			let tip: Cid = stream.tip.parse()?;
