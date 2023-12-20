@@ -47,7 +47,6 @@ impl TryFrom<dataverse_ceramic::Event> for Event {
 
 	fn try_from(value: dataverse_ceramic::Event) -> Result<Self, Self::Error> {
 		let cid = value.genesis()?;
-		println!("cid: {:?}", cid);
 		let event = Event {
 			cid: value.cid.to_string(),
 			prev: value.prev()?.map(|x| x.to_string()),

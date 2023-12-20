@@ -13,7 +13,12 @@ pub struct Stream {
 	pub tip: Cid,
 	pub account: Option<String>,
 	pub model: Option<StreamId>,
+	#[serde(default = "content_default")]
 	pub content: serde_json::Value,
+}
+
+fn content_default() -> serde_json::Value {
+	serde_json::Value::Null
 }
 
 impl Stream {
