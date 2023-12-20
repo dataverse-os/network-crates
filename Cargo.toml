@@ -49,6 +49,7 @@ tokio = { version = "1.31.0", default-features = false, features = ["full"] }
 tracing = { version = "0.1.40", default-features = false }
 url = "2.4.0"
 uuid = { version = "1.4.1", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
+diesel = { version = "2.1.4", default-features = false, features = ["postgres", "chrono", "uuid", "r2d2", "serde_json", "postgres_backend"] }
 
 [patch.'https://github.com/ceramicnetwork/rust-ceramic']
 ceramic-core = { git = "https://github.com/dataverse-os/rust-ceramic", branch = "patch-kubo-block-put" }

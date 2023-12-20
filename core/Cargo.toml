@@ -8,20 +8,13 @@ edition = "2021"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 ceramic-core = { workspace = true }
-ceramic-http-client = { workspace = true }
-chrono = { version = "0.4.30", features = ["serde"] }
 dapp-table-client = { workspace = true }
 dataverse-ceramic = { workspace = true }
 fang = { workspace = true }
-hex = { workspace = true }
 int-enum = { workspace = true }
 log = { workspace = true }
-multibase = "0.9.1"
 once_cell = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-ssi = { version = "0.7", features = ["ed25519"] }
 tokio = { workspace = true }
-unsigned-varint = "0.7.2"
-url = { workspace = true }
 uuid = { workspace = true }

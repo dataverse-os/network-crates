@@ -6,28 +6,20 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-async-channel = "2.1.0"
 async-std = { workspace = true }
 async-trait = { workspace = true }
 base64 = "0.21.3"
 ceramic-core = { workspace = true }
-ceramic-event = { workspace = true }
 ceramic-http-client = { workspace = true }
 chrono = { workspace = true }
-dag-jose = "0.1.2"
-dapp-table-client = { workspace = true }
 dataverse-ceramic = { workspace = true }
 dataverse-core = { workspace = true }
-diesel = { version = "2.1.1", features = ["postgres", "chrono", "uuid", "r2d2", "serde_json", "postgres_backend"] }
+diesel = { workspace = true }
 fang = { workspace = true }
 int-enum = { workspace = true }
 json-patch = { workspace = true }
 log = { workspace = true }
-multibase = "0.9.1"
-reqwest = "0.11.22"
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
-url = { workspace = true }
 uuid = { workspace = true }
