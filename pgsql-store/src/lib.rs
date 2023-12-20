@@ -100,6 +100,18 @@ impl Client {
 
 #[async_trait::async_trait]
 impl StreamStore for Client {
+	 async fn list_all_streams(&self) -> anyhow::Result<Vec<Stream>> {
+		let mut result = Vec::new();
+		let models = self.list_models().await?;
+		for model in models {
+			let streams = self.list_stream_in_model(&model).await?;
+			for stream in streams {
+				result.push(stream);
+			}
+		}
+		Ok(result)
+	}
+
 	async fn save_stream(&self, stream: &Stream) -> anyhow::Result<()> {
 		let stream: models::Stream = stream.try_into()?;
 		let conn = &mut self.pool.get()?;
