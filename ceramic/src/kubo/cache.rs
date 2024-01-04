@@ -1,12 +1,12 @@
 extern crate lru;
 
-use ceramic_core::{Cid, StreamId};
 use fang::{AsyncQueue, AsyncQueueable, NoTls};
 use lru::LruCache;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::Mutex;
 
-use crate::{http, Ceramic, Event, EventValue, StreamLoader};
+use crate::{Ceramic, Event, EventValue, StreamLoader};
+use crate::{Cid, StreamId};
 
 use super::{
 	message::MessagePublisher,
@@ -97,7 +97,7 @@ impl AnchorRuester for Cached {
 		event: Event,
 	) -> anyhow::Result<()> {
 		if let EventValue::Signed(_) = &event.value {
-			let task = http::EventUploadHandler {
+			let task = crate::http::EventUploadHandler {
 				ceramic: ceramic.clone(),
 				stream_id: stream_id.clone(),
 				commit: event,

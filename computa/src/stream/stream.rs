@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+#[cfg(feature = "ceramic-core")]
 use ceramic_http_client::api::StateLog;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
@@ -50,6 +51,22 @@ pub struct StreamState {
 	pub anchor_proof: Option<AnchorProof>,
 	/// Type of document
 	pub doctype: String,
+}
+
+/// Log entry for stream
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StateLog {
+	/// CID for commit
+	pub cid: String,
+	/// Type of commit
+	pub r#type: u64,
+	/// Timestamp for commit
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub timestamp: Option<i64>,
+	/// Expiration Time for commit
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub expiration_time: Option<i64>,
 }
 
 #[repr(u64)]

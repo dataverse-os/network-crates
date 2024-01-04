@@ -75,6 +75,7 @@ impl TryFrom<&[u8]> for StreamId {
 	}
 }
 
+#[cfg(feature = "ceramic-core")]
 impl From<ceramic_core::StreamId> for StreamId {
 	fn from(value: ceramic_core::StreamId) -> Self {
 		Self {
@@ -84,6 +85,7 @@ impl From<ceramic_core::StreamId> for StreamId {
 	}
 }
 
+#[cfg(feature = "ceramic-core")]
 impl Into<ceramic_core::StreamId> for StreamId {
 	fn into(self) -> ceramic_core::StreamId {
 		ceramic_core::StreamId {
@@ -180,6 +182,7 @@ pub enum StreamIdType {
 	EventId = 5,
 }
 
+#[cfg(feature = "ceramic-core")]
 impl Into<ceramic_core::StreamIdType> for StreamIdType {
 	fn into(self) -> ceramic_core::StreamIdType {
 		match self {
@@ -195,6 +198,7 @@ impl Into<ceramic_core::StreamIdType> for StreamIdType {
 	}
 }
 
+#[cfg(feature = "ceramic-core")]
 impl From<ceramic_core::StreamIdType> for StreamIdType {
 	fn from(value: ceramic_core::StreamIdType) -> Self {
 		match value {

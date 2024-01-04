@@ -1,4 +1,3 @@
-use ceramic_core::StreamId;
 use fang::async_trait;
 use fang::asynk::async_queue::AsyncQueueable;
 use fang::serde::{Deserialize, Serialize};
@@ -7,7 +6,7 @@ use fang::AsyncRunnable;
 use fang::FangError;
 
 use crate::EventsUploader;
-use crate::{Ceramic, Event};
+use crate::{Ceramic, Event, StreamId};
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "fang::serde")]

@@ -3,20 +3,19 @@ mod task;
 pub use task::*;
 
 use anyhow::{Context, Result};
-use ceramic_core::{Base64UrlString, Cid, StreamId};
+use ceramic_core::Base64UrlString;
 use ceramic_event::{DidDocument, JwkSigner};
 use ceramic_http_client::{api, remote::CeramicRemoteHttpClient, FilterQuery};
 use int_enum::IntEnum;
 use json_patch::{patch, Patch};
 use ssi::jwk::Algorithm;
 
-use crate::{
-	did::generate_did_str,
-	event::{Event, EventsLoader, EventsUploader},
-	network::{Chain, Network},
-	stream::StreamState,
-	AnchorStatus, Ceramic, LogType, StreamAnchorRequester, StreamLoader, StreamsLoader,
-};
+use crate::did::generate_did_str;
+use crate::event::{Event, EventsLoader, EventsUploader};
+use crate::network::{Chain, Network};
+use crate::stream::StreamState;
+use crate::{AnchorStatus, Ceramic, LogType, StreamAnchorRequester, StreamLoader, StreamsLoader};
+use crate::{Cid, StreamId};
 
 pub struct Client {}
 
@@ -78,7 +77,7 @@ impl EventsLoader for Client {
 		_tip: Option<Cid>,
 	) -> anyhow::Result<Vec<Event>> {
 		let http_client = Self::init(&ceramic.endpoint)?;
-		let commits = http_client.commits(stream_id).await?.commits;
+		let commits = http_client.commits(stream_id.into()).await?.commits;
 		let mut events = vec![];
 		for commit in commits {
 			events.push(commit.try_into()?)

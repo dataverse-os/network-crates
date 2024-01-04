@@ -7,7 +7,7 @@ pub mod task;
 pub use cache::Cached;
 pub use store::Store;
 
-use ceramic_core::{Cid, StreamId};
+use crate::{Cid, StreamId};
 use ceramic_kubo_rpc_server::models;
 use ceramic_kubo_rpc_server::{ApiNoContext, ContextWrapperExt};
 use ceramic_kubo_rpc_server::{BlockGetPostResponse, BlockPutPostResponse};

@@ -1,12 +1,11 @@
 use std::str::FromStr;
 
-use crate::{Cid, StreamId, StreamIdType};
+use crate::{Base64String, Cid, StreamId, StreamIdType};
 use anyhow::{Context, Ok};
-use ceramic_core::{Base64String, Jws};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 
-use super::jws::ToCid;
+use super::jws::{Jws, ToCid};
 use super::{Event, EventValue, Payload, SignedValue};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -70,6 +69,7 @@ impl TryInto<Event> for Content {
 	}
 }
 
+#[cfg(feature = "ceramic-http-client")]
 impl<T> TryFrom<Event> for ceramic_http_client::api::BlockData<T>
 where
 	T: Serialize,

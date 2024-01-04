@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use base64::Engine;
 use bytes::Bytes;
-use ceramic_core::{Cid, StreamId};
 use ceramic_kubo_rpc_server::{IdPostResponse, PubsubPubPostResponse, PubsubSubPostResponse};
 use futures_util::StreamExt;
 use libipld::cbor::DagCborCodec;
@@ -12,6 +11,7 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use crate::{network::Network, Ceramic};
+use crate::{Cid, StreamId};
 
 use super::{pubsub::Message, store, Client};
 

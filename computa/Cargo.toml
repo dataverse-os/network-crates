@@ -1,0 +1,34 @@
+[package]
+name = "dataverse-computa"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = { workspace = true }
+base64 = "0.21.5"
+ceramic-core = { workspace = true, optional = true }
+ceramic-http-client = { workspace = true, optional = true }
+chrono = { workspace = true }
+cid = { workspace = true }
+dag-jose = "0.1.3"
+ethabi = "18.0.0"
+int-enum = { workspace = true }
+json-patch = "1.2.0"
+libipld = "0.16.0"
+multibase = "0.9.1"
+primitive-types = "0.12.2"
+risc0-zkvm = "0.19.1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing.workspace = true
+unsigned-varint = "0.7.2"
+url = { workspace = true }
+dataverse-computa-derive = { workspace = true }
+
+[features]
+ceramic-core = ["dep:ceramic-core"]
+
+[[example]]
+name = "foo"

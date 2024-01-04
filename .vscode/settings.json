@@ -1,0 +1,6 @@
+{
+  "rust-analyzer.cargo.features": [],
+  "rust-analyzer.linkedProjects": [
+    "./computa_derive/Cargo.toml"
+  ]
+}

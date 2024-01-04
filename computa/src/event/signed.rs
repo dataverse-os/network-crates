@@ -1,8 +1,7 @@
 use crate::stream::StreamState;
-use crate::EventValue;
+use crate::Base64String;
 
 use anyhow::Result;
-use ceramic_core::Base64String;
 use json_patch::Patch;
 use libipld::multihash::{Code, MultihashDigest};
 use libipld::prelude::Codec;
@@ -11,24 +10,15 @@ use serde::{Deserialize, Serialize};
 
 use super::cacao::CACAO;
 use super::ipld::IpldAs;
-use super::{jws, StreamStateApplyer};
+use super::jws::Jws;
+use super::{EventValue, StreamStateApplyer};
 use crate::StreamId;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignedValue {
-	pub jws: ceramic_core::Jws,
+	pub jws: Jws,
 	pub linked_block: Option<Vec<u8>>,
 	pub cacao_block: Option<Vec<u8>>,
-}
-
-impl Clone for SignedValue {
-	fn clone(&self) -> Self {
-		Self {
-			jws: jws::clone_jws(&self.jws),
-			linked_block: self.linked_block.clone(),
-			cacao_block: self.cacao_block.clone(),
-		}
-	}
 }
 
 impl Into<EventValue> for SignedValue {
@@ -55,7 +45,7 @@ impl TryFrom<Vec<u8>> for SignedValue {
 	type Error = anyhow::Error;
 
 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		let super::jws::Jws(jws) = value.try_into()?;
+		let jws = value.try_into()?;
 
 		Ok(SignedValue {
 			jws,

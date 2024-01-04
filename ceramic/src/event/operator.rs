@@ -1,6 +1,4 @@
-use ceramic_core::{Cid, StreamId};
-
-use crate::{event::Event, Ceramic};
+use crate::{event::Event, Ceramic, Cid, StreamId};
 
 #[async_trait::async_trait]
 pub trait EventsLoader: Sync + Send {
