@@ -1,6 +1,6 @@
 use fang::{AsyncQueue, AsyncWorkerPool};
-use native_tls::TlsConnector;
-use postgres_native_tls::MakeTlsConnector;
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+use postgres_openssl::MakeTlsConnector;
 
 pub type Queue = AsyncQueue<MakeTlsConnector>;
 
@@ -11,9 +11,10 @@ pub async fn new_queue(dsn: &str, max_pool_size: u32) -> anyhow::Result<Queue> {
 	.max_pool_size(max_pool_size)
 	.build();
 
-	let connector = TlsConnector::builder().build()?;
-	let tls = MakeTlsConnector::new(connector);
-	queue.connect(tls).await?;
+	let mut builder = SslConnector::builder(SslMethod::tls())?;
+	builder.set_verify(SslVerifyMode::NONE);
+	let connector = MakeTlsConnector::new(builder.build());
+	queue.connect(connector).await?;
 	return Ok(queue);
 }
 

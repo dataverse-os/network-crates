@@ -1648,7 +1648,7 @@ dependencies = [
  "lru",
  "multibase 0.9.1",
  "once_cell",
- "postgres-native-tls",
+ "postgres-openssl",
  "primitive-types 0.12.2",
  "serde",
  "serde_json",
@@ -1700,8 +1700,8 @@ dependencies = [
  "int-enum",
  "json-patch",
  "log 0.4.20",
- "native-tls",
- "postgres-native-tls",
+ "openssl",
+ "postgres-openssl",
  "serde",
  "serde_json",
  "tracing",
@@ -5095,9 +5095,9 @@ dependencies = [
 
 [[package]]
 name = "openssl"
-version = "0.10.61"
+version = "0.10.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b8419dc8cc6d866deb801274bba2e6f8f6108c1bb7fcc10ee5ab864931dbb45"
+checksum = "8cde4d2d9200ad5909f8dac647e29482e07c3a35de8a13fce7c9c7747ad9f671"
 dependencies = [
  "bitflags 2.4.1",
  "cfg-if",
@@ -5127,9 +5127,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.97"
+version = "0.9.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3eaad34cdd97d81de97964fc7f29e2d104f483840d906ef56daa1912338460b"
+checksum = "c1665caf8ab2dc9aef43d1c0023bd904633a6a05cb30b0ad59bec2ae986e57a7"
 dependencies = [
  "cc",
  "libc",
@@ -5719,15 +5719,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "postgres-native-tls"
+name = "postgres-openssl"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d442770e2b1e244bb5eb03b31c79b65bb2568f413b899eaba850fa945a65954"
+checksum = "1de0ea6504e07ca78355a6fb88ad0f36cafe9e696cbc6717f16a207f3a60be72"
 dependencies = [
  "futures",
- "native-tls",
+ "openssl",
  "tokio",
- "tokio-native-tls",
+ "tokio-openssl",
  "tokio-postgres",
 ]
 

@@ -3,7 +3,7 @@ extern crate lru;
 use ceramic_core::{Cid, StreamId};
 use fang::{AsyncQueue, AsyncQueueable};
 use lru::LruCache;
-use postgres_native_tls::MakeTlsConnector;
+use postgres_openssl::MakeTlsConnector;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::Mutex;
 
