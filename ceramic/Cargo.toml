@@ -29,6 +29,7 @@ log = { workspace = true }
 lru = "0.12.1"
 multibase = "0.9.1"
 once_cell = { workspace = true }
+postgres-native-tls = { workspace = true }
 primitive-types = "0.12.2"
 serde = { workspace = true }
 serde_json = { workspace = true }

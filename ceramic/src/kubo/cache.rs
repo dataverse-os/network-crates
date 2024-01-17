@@ -1,8 +1,9 @@
 extern crate lru;
 
 use ceramic_core::{Cid, StreamId};
-use fang::{AsyncQueue, AsyncQueueable, NoTls};
+use fang::{AsyncQueue, AsyncQueueable};
 use lru::LruCache;
+use postgres_native_tls::MakeTlsConnector;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -16,14 +17,14 @@ use super::{
 
 pub struct Cached {
 	pub client: Arc<Client>,
-	pub queue: Arc<Mutex<AsyncQueue<NoTls>>>,
+	pub queue: Arc<Mutex<AsyncQueue<MakeTlsConnector>>>,
 	pub cache: Arc<Mutex<LruCache<Cid, Vec<u8>>>>,
 }
 
 impl Cached {
 	pub fn new(
 		client: Arc<Client>,
-		queue: Arc<Mutex<AsyncQueue<NoTls>>>,
+		queue: Arc<Mutex<AsyncQueue<MakeTlsConnector>>>,
 		cache_size: usize,
 	) -> anyhow::Result<Self> {
 		let cap = match NonZeroUsize::new(cache_size) {

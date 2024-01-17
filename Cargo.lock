@@ -1648,6 +1648,7 @@ dependencies = [
  "lru",
  "multibase 0.9.1",
  "once_cell",
+ "postgres-native-tls",
  "primitive-types 0.12.2",
  "serde",
  "serde_json",
