@@ -1,6 +1,8 @@
-use fang::{AsyncQueue, AsyncWorkerPool, NoTls};
+use fang::{AsyncQueue, AsyncWorkerPool};
+use native_tls::TlsConnector;
+use postgres_native_tls::MakeTlsConnector;
 
-pub type Queue = AsyncQueue<NoTls>;
+pub type Queue = AsyncQueue<MakeTlsConnector>;
 
 pub async fn new_queue(dsn: &str, max_pool_size: u32) -> anyhow::Result<Queue> {
 	let mut queue = AsyncQueue::builder()
@@ -9,12 +11,13 @@ pub async fn new_queue(dsn: &str, max_pool_size: u32) -> anyhow::Result<Queue> {
 	.max_pool_size(max_pool_size)
 	.build();
 
-	// Always connect first in order to perform any operation
-	queue.connect(NoTls).await?;
+	let connector = TlsConnector::builder().build()?;
+	let tls = MakeTlsConnector::new(connector);
+	queue.connect(tls).await?;
 	return Ok(queue);
 }
 
-pub fn build_pool(queue: Queue, num: u32) -> AsyncWorkerPool<AsyncQueue<NoTls>> {
+pub fn build_pool(queue: Queue, num: u32) -> AsyncWorkerPool<AsyncQueue<MakeTlsConnector>> {
 	AsyncWorkerPool::builder()
 		.number_of_workers(num)
 		.queue(queue)

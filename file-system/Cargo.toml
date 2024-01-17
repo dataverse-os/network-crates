@@ -19,6 +19,8 @@ fang = { workspace = true }
 int-enum = { workspace = true }
 json-patch = { workspace = true }
 log = { workspace = true }
+native-tls = "0.2.11"
+postgres-native-tls = "0.5.0"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

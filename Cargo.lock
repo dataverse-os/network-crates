@@ -1699,6 +1699,8 @@ dependencies = [
  "int-enum",
  "json-patch",
  "log 0.4.20",
+ "native-tls",
+ "postgres-native-tls",
  "serde",
  "serde_json",
  "tracing",
@@ -5713,6 +5715,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.41",
+]
+
+[[package]]
+name = "postgres-native-tls"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d442770e2b1e244bb5eb03b31c79b65bb2568f413b899eaba850fa945a65954"
+dependencies = [
+ "futures",
+ "native-tls",
+ "tokio",
+ "tokio-native-tls",
+ "tokio-postgres",
 ]
 
 [[package]]
