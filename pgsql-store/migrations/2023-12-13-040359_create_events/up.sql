@@ -1,20 +1,27 @@
 -- Your SQL goes here
-create table events (
-    cid varchar(70) not null
-        constraint events_pk
-            primary key,
-    prev varchar(70),
-    genesis varchar(70) not null,
-    blocks bytea[] not null check (blocks <> '{}' and array_position(blocks, null) is null)
+CREATE TABLE events (
+    cid VARCHAR(70) NOT NULL CONSTRAINT events_pk PRIMARY KEY,
+    prev VARCHAR(70),
+    genesis VARCHAR(70) NOT NULL,
+    blocks BYTEA [] NOT NULL CHECK (
+        blocks <> '{}'
+        and array_position(blocks, null) IS NULL
+    )
 );
 
-create table streams (
-    stream_id varchar(70) not null
-        constraint streams_pk
-            primary key,
-    dapp_id uuid not null,
-    tip varchar(70) not null,
-    account varchar(100),
-    model_id varchar(70),
-    content jsonb not null
+CREATE TABLE streams (
+    stream_id VARCHAR(70) NOT NULL CONSTRAINT streams_pk PRIMARY KEY,
+    dapp_id uuid NOT NULL,
+    tip VARCHAR(70) NOT NULL,
+    account VARCHAR(100),
+    model_id VARCHAR(70),
+    content JSONB NOT NULL
 );
+
+CREATE TABLE index_folders (
+    stream_id VARCHAR(70) NOT NULL CONSTRAINT index_folders_pk PRIMARY KEY,
+    tip VARCHAR(70) NOT NULL,
+    signal JSONB
+);
+
+CREATE INDEX index_folders_tip_idx ON index_folders (signal);

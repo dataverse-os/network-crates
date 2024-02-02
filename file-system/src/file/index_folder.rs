@@ -3,11 +3,11 @@ use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 
-use super::{access_control::AccessControl, action_file::ActionType, content_type::ContentType};
+use super::access_control::AccessControl;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct IndexFolder {
+pub struct IndexFolder {
 	pub folder_name: String,
 	pub folder_type: FolderType,
 	pub created_at: DateTime<Utc>,
@@ -23,7 +23,6 @@ struct IndexFolder {
 }
 
 impl IndexFolder {
-	#[allow(dead_code)]
 	pub fn options(&self) -> anyhow::Result<Option<FolderOptions>> {
 		if let Some(options) = &self.options {
 			Ok(serde_json::from_slice(options.to_vec()?.as_ref())?)
@@ -40,10 +39,9 @@ impl IndexFolder {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-struct FolderOptions {
+pub struct FolderOptions {
+	pub signal: Option<serde_json::Value>,
 	pub folder_description: Option<String>,
-	pub content_type: Option<ContentType>,
-	pub action_type: Option<ActionType>,
 }
 
 #[repr(u64)]

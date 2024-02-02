@@ -11,6 +11,7 @@ use int_enum::IntEnum;
 use crate::file::status::Status;
 
 use super::index_file::IndexFile;
+use super::index_folder::IndexFolder;
 use super::FileModel;
 use super::{operator::StreamFileLoader, StreamFile};
 
@@ -73,6 +74,32 @@ pub trait StreamFileTrait {
 		account: Option<String>,
 		model_id: &StreamId,
 	) -> anyhow::Result<Vec<StreamFile>>;
+
+	async fn load_index_folders(
+		&self,
+		model_id: &StreamId,
+		signal: String,
+	) -> anyhow::Result<Vec<StreamFile>> {
+		let model = dapp::get_model(&model_id).await?;
+		if model.name.as_str() != "indexFolder" {
+			anyhow::bail!("model_id {} is not indexFolder", model_id);
+		}
+		let files = self.load_files(None, model_id).await?;
+		let mut folders = vec![];
+		for file in files {
+			if let Some(content) = &file.content {
+				let index_folder: IndexFolder = serde_json::from_value(content.clone())?;
+				if let Some(options) = index_folder.options()? {
+					if let Some(s) = options.signal {
+						if s.to_string() == signal {
+							folders.push(file);
+						}
+					}
+				}
+			}
+		}
+		Ok(folders)
+	}
 }
 
 #[async_trait::async_trait]
