@@ -11,6 +11,7 @@ use int_enum::IntEnum;
 use crate::file::status::Status;
 
 use super::index_file::IndexFile;
+use super::index_folder::IndexFolder;
 use super::FileModel;
 use super::{operator::StreamFileLoader, StreamFile};
 
@@ -72,7 +73,12 @@ pub trait StreamFileTrait {
 		&self,
 		account: Option<String>,
 		model_id: &StreamId,
+		options: Vec<LoadFilesOption>,
 	) -> anyhow::Result<Vec<StreamFile>>;
+}
+
+pub enum LoadFilesOption {
+	Signal(serde_json::Value),
 }
 
 #[async_trait::async_trait]
@@ -159,6 +165,7 @@ impl StreamFileTrait for Client {
 		&self,
 		account: Option<String>,
 		model_id: &StreamId,
+		options: Vec<LoadFilesOption>,
 	) -> Result<Vec<StreamFile>> {
 		let model = dapp::get_model(&model_id).await?;
 		let app_id = model.dapp_id;
@@ -196,7 +203,26 @@ impl StreamFileTrait for Client {
 				.into_iter()
 				.map(StreamFile::new_with_file)
 				.collect(),
-			"indexFolder" | "contentFolder" => stream_states
+			"indexFolder" => stream_states
+				.into_iter()
+				.filter(|state| {
+					if let Ok(index_folder) =
+						serde_json::from_value::<IndexFolder>(state.content.clone())
+					{
+						if let Ok(Some(if_options)) = index_folder.options() {
+							for option in options.iter() {
+								let LoadFilesOption::Signal(signal) = option;
+								if if_options.signals.contains(signal) {
+									return true;
+								}
+							}
+						}
+					}
+					false
+				})
+				.map(StreamFile::new_with_content)
+				.collect(),
+			"contentFolder" => stream_states
 				.into_iter()
 				.map(StreamFile::new_with_content)
 				.collect(),

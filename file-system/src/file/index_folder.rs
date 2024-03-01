@@ -2,12 +2,13 @@ use ceramic_core::Base64String;
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use super::{access_control::AccessControl, action_file::ActionType, content_type::ContentType};
+use super::access_control::AccessControl;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct IndexFolder {
+pub struct IndexFolder {
 	pub folder_name: String,
 	pub folder_type: FolderType,
 	pub created_at: DateTime<Utc>,
@@ -40,10 +41,9 @@ impl IndexFolder {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-struct FolderOptions {
+pub struct FolderOptions {
 	pub folder_description: Option<String>,
-	pub content_type: Option<ContentType>,
-	pub action_type: Option<ActionType>,
+	pub signals: Vec<Value>,
 }
 
 #[repr(u64)]
@@ -51,4 +51,36 @@ struct FolderOptions {
 pub enum FolderType {
 	PrivateFolderType = 0,
 	UnionFolderType = 1,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use base64::{engine::general_purpose, Engine};
+	use serde_json::json;
+
+	#[test]
+	fn test_decode_folder_options() {
+		let encoded_data = "eyJzaWduYWxzIjpbeyJ0eXBlIjoyLCJpZCI6IjB4YmRiNmYwZmViYTMwM2RiMTcyYjU1NzcxMmNiZjI3YTYzM2MzYzZiM2NiNjg2YjI1ZGFjMTIxZTk2ODFjZmQ1NSJ9XX0";
+		let decoded_data = general_purpose::STANDARD_NO_PAD
+			.decode(encoded_data)
+			.unwrap();
+		let decoded_str = String::from_utf8(decoded_data).unwrap();
+
+		let folder_options: FolderOptions = serde_json::from_str(&decoded_str).unwrap();
+
+		assert_eq!(
+			folder_options.signals,
+			vec![
+				json!({"type":2, "id":"0xbdb6f0feba303db172b557712cbf27a633c3c6b3cb686b25dac121e9681cfd55"})
+			]
+		);
+
+		assert_eq!(
+			folder_options.signals,
+			vec![
+				json!({"id":"0xbdb6f0feba303db172b557712cbf27a633c3c6b3cb686b25dac121e9681cfd55", "type":2})
+			]
+		);
+	}
 }
