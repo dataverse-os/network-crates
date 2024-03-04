@@ -10,6 +10,7 @@ pub enum Status {
 	NakedStream = -1,
 	CACAOExpired = -2,
 	BrokenContent = -3,
+	BrokenFolder = -4,
 }
 
 impl Default for Status {

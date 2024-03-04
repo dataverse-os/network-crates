@@ -206,31 +206,55 @@ impl StreamFileTrait for Client {
 				.collect(),
 			"indexFolder" => stream_states
 				.into_iter()
-				.filter(|state| {
-					if let Ok(index_folder) =
-						serde_json::from_value::<IndexFolder>(state.content.clone())
-					{
-						// check if index_folder options contains every signals
-						let required_signals: Vec<_> = options
-							.iter()
-							.filter_map(|option| match option {
-								LoadFilesOption::Signal(signal) => Some(signal.clone()),
-								_ => None,
-							})
-							.collect();
-
-						if let Ok(Some(options)) = index_folder.options() {
-							if required_signals
-								.iter()
-								.all(|signal| options.signals.contains(signal))
-							{
-								return true;
+				.map(|state| {
+					let mut file = StreamFile::new_with_content(state.clone())?;
+					let index_folder =
+						match serde_json::from_value::<IndexFolder>(state.content.clone()) {
+							Err(err) => {
+								file.write_status(
+									Status::BrokenFolder,
+									format!("Failed to asset content as index_folder: {}", err),
+								);
+								return Ok(file);
 							}
+							Ok(index_folder) => index_folder,
+						};
+
+					let maybe_options = match index_folder.options() {
+						Ok(options) => options,
+						Err(err) => {
+							file.write_status(
+								Status::BrokenFolder,
+								format!("Failed to decode folder options: {}", err),
+							);
+							return Ok(file);
 						}
+					};
+
+					// check if index_folder options contains every signals
+					let required_signals: Vec<_> = options
+						.iter()
+						.filter_map(|option| match option {
+							LoadFilesOption::Signal(signal) => Some(signal.clone()),
+							_ => None,
+						})
+						.collect();
+
+					let all_signals_present = required_signals.iter().all(|signal| {
+						maybe_options
+							.as_ref()
+							.map_or(false, |options| options.signals.contains(signal))
+					});
+
+					if !all_signals_present {
+						file.write_status(
+							Status::BrokenFolder,
+							"Missing required signals".to_string(),
+						);
 					}
-					false
+
+					Ok(file)
 				})
-				.map(StreamFile::new_with_content)
 				.collect(),
 			"contentFolder" => stream_states
 				.into_iter()
