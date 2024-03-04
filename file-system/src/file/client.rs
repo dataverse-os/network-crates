@@ -79,6 +79,7 @@ pub trait StreamFileTrait {
 
 pub enum LoadFilesOption {
 	Signal(serde_json::Value),
+	None,
 }
 
 #[async_trait::async_trait]
@@ -209,12 +210,21 @@ impl StreamFileTrait for Client {
 					if let Ok(index_folder) =
 						serde_json::from_value::<IndexFolder>(state.content.clone())
 					{
-						if let Ok(Some(if_options)) = index_folder.options() {
-							for option in options.iter() {
-								let LoadFilesOption::Signal(signal) = option;
-								if if_options.signals.contains(signal) {
-									return true;
-								}
+						// check if index_folder options contains every signals
+						let required_signals: Vec<_> = options
+							.iter()
+							.filter_map(|option| match option {
+								LoadFilesOption::Signal(signal) => Some(signal.clone()),
+								_ => None,
+							})
+							.collect();
+
+						if let Ok(Some(options)) = index_folder.options() {
+							if required_signals
+								.iter()
+								.all(|signal| options.signals.contains(signal))
+							{
+								return true;
 							}
 						}
 					}
