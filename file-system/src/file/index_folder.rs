@@ -43,6 +43,7 @@ impl IndexFolder {
 #[serde(rename_all = "camelCase")]
 pub struct FolderOptions {
 	pub folder_description: Option<String>,
+	#[serde(default = "Vec::new")]
 	pub signals: Vec<Value>,
 }
 
@@ -76,6 +77,8 @@ mod tests {
 
 		let index_folder = serde_json::from_value::<IndexFolder>(value);
 		assert!(index_folder.is_ok());
+		let index_folder = index_folder.unwrap();
+		assert!(index_folder.options().is_ok())
 	}
 
 	#[test]
