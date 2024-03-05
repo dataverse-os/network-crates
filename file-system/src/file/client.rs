@@ -204,58 +204,66 @@ impl StreamFileTrait for Client {
 				.into_iter()
 				.map(StreamFile::new_with_file)
 				.collect(),
-			"indexFolder" => stream_states
-				.into_iter()
-				.map(|state| {
-					let mut file = StreamFile::new_with_content(state.clone())?;
-					let index_folder =
-						match serde_json::from_value::<IndexFolder>(state.content.clone()) {
+			"indexFolder" => {
+				let files = stream_states
+					.into_iter()
+					.filter_map(|state| {
+						let mut file = StreamFile::new_with_content(state.clone()).ok()?;
+						let index_folder =
+							match serde_json::from_value::<IndexFolder>(state.content.clone()) {
+								Err(err) => {
+									file.write_status(
+										Status::BrokenFolder,
+										format!("Failed to asset content as index_folder: {}", err),
+									);
+									return Some(file);
+								}
+								Ok(index_folder) => index_folder,
+							};
+
+						let maybe_options = match index_folder.options() {
+							Ok(options) => options,
 							Err(err) => {
 								file.write_status(
 									Status::BrokenFolder,
-									format!("Failed to asset content as index_folder: {}", err),
+									format!("Failed to decode folder options: {}", err),
 								);
-								return Ok(file);
+								return Some(file);
 							}
-							Ok(index_folder) => index_folder,
 						};
 
-					let maybe_options = match index_folder.options() {
-						Ok(options) => options,
-						Err(err) => {
+						// check if index_folder access control is valid
+						if let Err(err) = index_folder.access_control() {
 							file.write_status(
 								Status::BrokenFolder,
-								format!("Failed to decode folder options: {}", err),
+								format!("access control error: {}", err),
 							);
-							return Ok(file);
+							return Some(file);
 						}
-					};
 
-					// check if index_folder options contains every signals
-					let required_signals: Vec<_> = options
-						.iter()
-						.filter_map(|option| match option {
-							LoadFilesOption::Signal(signal) => Some(signal.clone()),
-							_ => None,
-						})
-						.collect();
+						// check if index_folder options contains every signals
+						let required_signals: Vec<_> = options
+							.iter()
+							.filter_map(|option| match option {
+								LoadFilesOption::Signal(signal) => Some(signal.clone()),
+								_ => None,
+							})
+							.collect();
 
-					let all_signals_present = required_signals.iter().all(|signal| {
-						maybe_options
-							.as_ref()
-							.map_or(false, |options| options.signals.contains(signal))
-					});
+						let all_signals_present = required_signals.iter().all(|signal| {
+							maybe_options
+								.as_ref()
+								.map_or(false, |options| options.signals.contains(signal))
+						});
 
-					if !all_signals_present {
-						file.write_status(
-							Status::BrokenFolder,
-							"Missing required signals".to_string(),
-						);
-					}
-
-					Ok(file)
-				})
-				.collect(),
+						if !all_signals_present {
+							return None;
+						}
+						Some(file)
+					})
+					.collect();
+				Ok(files)
+			}
 			"contentFolder" => stream_states
 				.into_iter()
 				.map(StreamFile::new_with_content)

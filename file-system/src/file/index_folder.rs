@@ -16,7 +16,7 @@ pub struct IndexFolder {
 	pub updated_at: DateTime<Utc>,
 	pub fs_version: String,
 
-	pub access_control: Base64String,
+	pub access_control: Option<Base64String>,
 	pub content_folder_ids: Vec<String>,
 
 	pub options: Option<Base64String>,
@@ -25,7 +25,6 @@ pub struct IndexFolder {
 }
 
 impl IndexFolder {
-	#[allow(dead_code)]
 	pub fn options(&self) -> anyhow::Result<Option<FolderOptions>> {
 		match &self.options {
 			Some(options) => Ok(serde_json::from_slice(options.to_vec()?.as_ref())?),
@@ -33,9 +32,18 @@ impl IndexFolder {
 		}
 	}
 
-	#[allow(dead_code)]
-	pub fn access_control(&self) -> anyhow::Result<AccessControl> {
-		Ok(serde_json::from_slice(&self.access_control.to_vec()?)?)
+	pub fn access_control(&self) -> anyhow::Result<Option<AccessControl>> {
+		match &self.access_control {
+			Some(access_control) => {
+				serde_json::from_slice(access_control.to_vec()?.as_ref()).map_err(Into::into)
+			}
+			None => {
+				if self.folder_type != FolderType::PublicFolderType {
+					anyhow::bail!("access control is missing for folder")
+				}
+				Ok(None)
+			}
+		}
 	}
 }
 
@@ -48,10 +56,11 @@ pub struct FolderOptions {
 }
 
 #[repr(u64)]
-#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, IntEnum)]
+#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, IntEnum, PartialEq, Eq, Hash)]
 pub enum FolderType {
-	PrivateFolderType = 0,
-	UnionFolderType = 1,
+	PublicFolderType = 0,
+	PrivateFolderType = 1,
+	UnionFolderType = 2,
 }
 
 #[cfg(test)]
@@ -78,7 +87,8 @@ mod tests {
 		let index_folder = serde_json::from_value::<IndexFolder>(value);
 		assert!(index_folder.is_ok());
 		let index_folder = index_folder.unwrap();
-		assert!(index_folder.options().is_ok())
+		assert!(index_folder.options().is_ok());
+		assert!(index_folder.access_control().is_err());
 	}
 
 	#[test]
