@@ -73,6 +73,9 @@ pub enum DecryptionCondition {
 	Boolean(BooleanCondition),
 	#[serde(rename_all = "camelCase")]
 	UnifiedAccessControl(Vec<UnifiedAccessControlConditions>),
+
+	#[serde(rename_all = "camelCase")]
+	Any(serde_json::Value),
 }
 
 #[derive(Debug, Deserialize)]
@@ -127,42 +130,52 @@ pub struct ReturnValueTest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MonetizationProvider {
-	pub protocol: MonetizationProtocol,
-	pub chain_id: u64,
-	pub base_contract: String,
-	pub union_contract: String,
-	pub datatoken_id: Option<String>,
-	pub data_union_id: Option<String>,
-	pub data_union_ids: Option<Vec<String>>,
-	pub unlocking_time_stamp: Option<String>,
+	pub data_asset: Option<DataAsset>,
+	pub dependencies: Option<Vec<Dependence>>,
 }
 
 #[derive(Debug, Deserialize)]
-pub enum MonetizationProtocol {
-	Lens,
+#[serde(rename_all = "camelCase")]
+pub struct DataAsset {
+	pub asset_id: String,
+	pub asset_contract: String,
+	pub chain_id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Dependence {
+	pub linked_asset: DataAsset,
+	pub attached: Option<Attached>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Attached {
+	pub block_number: u64,
 }
 
 #[cfg(test)]
 mod tests {
-	use serde_json::json;
 
 	use super::*;
 
 	#[test]
-	fn test_decode_access_control_condition() {
+	fn decode_access_control_decryption_condition() {
+		// case AccessControlCondition
 		let data = serde_json::json!({
-		  "conditionType": "evmBasic",
-		  "contractAddress": "",
-		  "standardContractType": "SIWE",
-		  "chain": "ethereum",
-		  "method": "",
-		  "parameters": [
-			":resources"
-		  ],
-		  "returnValueTest": {
-			"comparator": "contains",
-			"value": "ceramic://*?model=kjzl6hvfrbw6cagt694iim2wuecu7eumeds7qd0p6uzm8dnqsq69ll7kacm05gu"
-		  }
+			"conditionType": "evmBasic",
+			"contractAddress": "",
+			"standardContractType": "SIWE",
+			"chain": "ethereum",
+			"method": "",
+			"parameters": [
+				":resources"
+			],
+			"returnValueTest": {
+				"comparator": "contains",
+				"value": "ceramic://*?model=kjzl6hvfrbw6cagt694iim2wuecu7eumeds7qd0p6uzm8dnqsq69ll7kacm05gu"
+			}
 		});
 
 		let condition = serde_json::from_value::<AccessControlCondition>(data.clone());
@@ -170,104 +183,100 @@ mod tests {
 
 		let condition = serde_json::from_value::<DecryptionCondition>(data);
 		assert!(condition.is_ok());
-	}
 
-	#[test]
-	fn test_decode_unified_access_control_condition() {
+		// case UnifiedAccessControlCondition
 		let data = serde_json::json!({
-		  "contractAddress": "0x8673f21B34319BD0709A7a501BD0fdB614A0a7A1",
-		  "conditionType": "evmContract",
-		  "functionName": "isCollected",
-		  "functionParams": [
-			":userAddress"
-		  ],
-		  "functionAbi": {
-			"inputs": [
-			  {
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			  }
+			"contractAddress": "0x8673f21B34319BD0709A7a501BD0fdB614A0a7A1",
+			"conditionType": "evmContract",
+			"functionName": "isCollected",
+			"functionParams": [
+				":userAddress"
 			],
-			"name": "isCollected",
-			"outputs": [
-			  {
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			  }
-			],
-			"stateMutability": "view",
-			"type": "function"
-		  },
-		  "chain": "mumbai",
-		  "returnValueTest": {
-			"key": "",
-			"comparator": "=",
-			"value": "true"
-		  }
+			"functionAbi": {
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					}
+				],
+				"name": "isCollected",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			"chain": "mumbai",
+			"returnValueTest": {
+				"key": "",
+				"comparator": "=",
+				"value": "true"
+			}
 		});
 
 		let condition = serde_json::from_value::<UnifiedAccessControlCondition>(data.clone());
 		assert!(condition.is_ok());
 
-		let condition = serde_json::from_value::<UnifiedAccessControlConditions>(data);
+		let condition = serde_json::from_value::<DecryptionCondition>(data);
 		assert!(condition.is_ok());
-	}
 
-	#[test]
-	fn test_decode_unified_access_control_conditions() {
+		// case UnifiedAccessControlConditions
 		let data = serde_json::json!([
-		  {
-			"conditionType": "evmBasic",
-			"contractAddress": "",
-			"standardContractType": "",
-			"chain": "ethereum",
-			"method": "",
-			"parameters": [
-			  ":userAddress"
-			],
-			"returnValueTest": {
-			  "comparator": "=",
-			  "value": "0x312eA852726E3A9f633A0377c0ea882086d66666"
-			}
-		  },
-		  {
-			"operator": "or"
-		  },
-		  {
-			"contractAddress": "0x8673f21B34319BD0709A7a501BD0fdB614A0a7A1",
-			"conditionType": "evmContract",
-			"functionName": "isCollected",
-			"functionParams": [
-			  ":userAddress"
-			],
-			"functionAbi": {
-			  "inputs": [
-				{
-				  "internalType": "address",
-				  "name": "user",
-				  "type": "address"
+			{
+				"conditionType": "evmBasic",
+				"contractAddress": "",
+				"standardContractType": "",
+				"chain": "ethereum",
+				"method": "",
+				"parameters": [
+					":userAddress"
+				],
+				"returnValueTest": {
+					"comparator": "=",
+					"value": "0x312eA852726E3A9f633A0377c0ea882086d66666"
 				}
-			  ],
-			  "name": "isCollected",
-			  "outputs": [
-				{
-				  "internalType": "bool",
-				  "name": "",
-				  "type": "bool"
-				}
-			  ],
-			  "stateMutability": "view",
-			  "type": "function"
 			},
-			"chain": "mumbai",
-			"returnValueTest": {
-			  "key": "",
-			  "comparator": "=",
-			  "value": "true"
+			{
+				"operator": "or"
+			},
+			{
+				"contractAddress": "0x8673f21B34319BD0709A7a501BD0fdB614A0a7A1",
+				"conditionType": "evmContract",
+				"functionName": "isCollected",
+				"functionParams": [
+					":userAddress"
+				],
+				"functionAbi": {
+					"inputs": [
+						{
+							"internalType": "address",
+							"name": "user",
+							"type": "address"
+						}
+					],
+					"name": "isCollected",
+					"outputs": [
+						{
+							"internalType": "bool",
+							"name": "",
+							"type": "bool"
+						}
+					],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				"chain": "mumbai",
+				"returnValueTest": {
+					"key": "",
+					"comparator": "=",
+					"value": "true"
+				}
 			}
-		  }
 		]);
 
 		let condition = serde_json::from_value::<Vec<UnifiedAccessControlConditions>>(data);
@@ -275,7 +284,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_decode_encryption_provider() {
+	fn decode_encryption_provider() {
 		let data = serde_json::json!({
 		  "protocol": "Lit",
 		  "encryptedSymmetricKey": "587360f2772503abd24cf63da2250005cab77d9a668552e7bd3728e8a73e30d4c46279611d29d807bfeee58c0f8d1e0dc4ba9b91c1130ae11fedebd7ec7f8934bcecddd717e24a99245596728c501db9255b8ba1f7faab19ab996f6df03ab7940eef2eede4d31821a184f9c5cbad25e5ebb1497363462ede2fff555b9704438a0000000000000020dc503f11f7c6e70c4432ef9f7ab6a3a8d805facf169d2ae6f0b662facef3a4a95d730f991ee0f28bf997eb87102000b6",
@@ -411,140 +420,140 @@ mod tests {
 	#[test]
 	fn decode_access_control() -> anyhow::Result<()> {
 		let data = serde_json::json!({
-		  "encryptionProvider": {
-			"protocol": "Lit",
-			"encryptedSymmetricKey": "587360f2772503abd24cf63da2250005cab77d9a668552e7bd3728e8a73e30d4c46279611d29d807bfeee58c0f8d1e0dc4ba9b91c1130ae11fedebd7ec7f8934bcecddd717e24a99245596728c501db9255b8ba1f7faab19ab996f6df03ab7940eef2eede4d31821a184f9c5cbad25e5ebb1497363462ede2fff555b9704438a0000000000000020dc503f11f7c6e70c4432ef9f7ab6a3a8d805facf169d2ae6f0b662facef3a4a95d730f991ee0f28bf997eb87102000b6",
-			"decryptionConditions": [
-			  {
-				"conditionType": "evmBasic",
-				"contractAddress": "",
-				"standardContractType": "SIWE",
-				"chain": "ethereum",
-				"method": "",
-				"parameters": [
-				  ":resources"
-				],
-				"returnValueTest": {
-				  "comparator": "contains",
-				  "value": "ceramic://*?model=kjzl6hvfrbw6cagt694iim2wuecu7eumeds7qd0p6uzm8dnqsq69ll7kacm05gu"
-				}
-			  },
-			  {
-				"operator": "and"
-			  },
-			  {
-				"conditionType": "evmBasic",
-				"contractAddress": "",
-				"standardContractType": "SIWE",
-				"chain": "ethereum",
-				"method": "",
-				"parameters": [
-				  ":resources"
-				],
-				"returnValueTest": {
-				  "comparator": "contains",
-				  "value": "ceramic://*?model=kjzl6hvfrbw6c7gu88g66z28n81lcpbg6hu2t8pu2pui0sfnpvsrhqn3kxh9xai"
-				}
-			  },
-			  {
-				"operator": "and"
-			  },
-			  {
-				"conditionType": "evmBasic",
-				"contractAddress": "",
-				"standardContractType": "SIWE",
-				"chain": "ethereum",
-				"method": "",
-				"parameters": [
-				  ":resources"
-				],
-				"returnValueTest": {
-				  "comparator": "contains",
-				  "value": "ceramic://*?model=kjzl6hvfrbw6c86gt9j415yw2x8stmkotcrzpeutrbkp42i4z90gp5ibptz4sso"
-				}
-			  },
-			  {
-				"operator": "and"
-			  },
-			  {
-				"conditionType": "evmBasic",
-				"contractAddress": "",
-				"standardContractType": "SIWE",
-				"chain": "ethereum",
-				"method": "",
-				"parameters": [
-				  ":resources"
-				],
-				"returnValueTest": {
-				  "comparator": "contains",
-				  "value": "ceramic://*?model=kjzl6hvfrbw6catek36h3pep09k9gymfnla9k6ojlgrmwjogvjqg8q3zpybl1yu"
-				}
-			  },
-			  {
-				"operator": "and"
-			  },
-			  [
-				{
-				  "conditionType": "evmBasic",
-				  "contractAddress": "",
-				  "standardContractType": "",
-				  "chain": "ethereum",
-				  "method": "",
-				  "parameters": [
-					":userAddress"
-				  ],
-				  "returnValueTest": {
-					"comparator": "=",
-					"value": "0x312eA852726E3A9f633A0377c0ea882086d66666"
-				  }
-				},
-				{
-				  "operator": "or"
-				},
-				{
-				  "contractAddress": "0x8673f21B34319BD0709A7a501BD0fdB614A0a7A1",
-				  "conditionType": "evmContract",
-				  "functionName": "isCollected",
-				  "functionParams": [
-					":userAddress"
-				  ],
-				  "functionAbi": {
-					"inputs": [
-					  {
-						"internalType": "address",
-						"name": "user",
-						"type": "address"
-					  }
+			"monetizationProvider": {
+					"dataAsset": {
+							"assetId": "0x11a8093021037a7d95d3073535c345041d3461e074525765069007de9beac8c5",
+							"assetContract": "0x67804E153F9675E2173142B76f9fe949b2b20bDE",
+							"chainId": 80001
+					}
+			},
+			"encryptionProvider": {
+					"protocol": "Lit",
+					"encryptedSymmetricKey": "7b2263697068657274657874223a226b436630645142693838364d48464a65483077344751676c4a37472b75694c78314c2f424c777362476c4c5355376c7963745a6441545678515979767532325a635a6d5450456b4e6f2f4a36486b594f637a794c4e4c4636674679657a49505858456548526d5876637664426e6f3158736f6d5961786d315136467a78364b6135675a4a355633713350305635576e4c466e46442f6c79435276682f7370644c3543764134367773535633686258544467595a4b493550323949756c7974326b312f7344222c2264617461546f456e637279707448617368223a2264343563666237666663663834646565666365376539323439386662623365333535393338373032313065613632333233313634613831343566383566363166227d",
+					"decryptionConditions": [
+							{
+									"conditionType": "evmBasic",
+									"contractAddress": "",
+									"standardContractType": "SIWE",
+									"chain": "ethereum",
+									"method": "",
+									"parameters": [
+											":resources"
+									],
+									"returnValueTest": {
+											"comparator": "contains",
+											"value": "ceramic://*?model=kjzl6hvfrbw6c89f0p1lyd1e78tel33qebisfdsi0prhhapn4rye45j1uj72tju"
+									}
+							},
+							{
+									"operator": "and"
+							},
+							{
+									"conditionType": "evmBasic",
+									"contractAddress": "",
+									"standardContractType": "SIWE",
+									"chain": "ethereum",
+									"method": "",
+									"parameters": [
+											":resources"
+									],
+									"returnValueTest": {
+											"comparator": "contains",
+											"value": "ceramic://*?model=kjzl6hvfrbw6cb2cjc4cprolj8vnykf41834r9chlay1582sjxleag1b0juy5kl"
+									}
+							},
+							{
+									"operator": "and"
+							},
+							{
+									"conditionType": "evmBasic",
+									"contractAddress": "",
+									"standardContractType": "SIWE",
+									"chain": "ethereum",
+									"method": "",
+									"parameters": [
+											":resources"
+									],
+									"returnValueTest": {
+											"comparator": "contains",
+											"value": "ceramic://*?model=kjzl6hvfrbw6c5m61z7cvgk4xwzx0aelqj4f9hmctn8ha64qtasd8e2779dswd5"
+									}
+							},
+							{
+									"operator": "and"
+							},
+							[
+									[
+											{
+													"conditionType": "evmBasic",
+													"contractAddress": "",
+													"standardContractType": "",
+													"chain": "ethereum",
+													"method": "",
+													"parameters": [
+															":userAddress"
+													],
+													"returnValueTest": {
+															"comparator": "=",
+															"value": "0xCedf62df194542b3fb3E376848f87cE9afd3CdDe"
+													}
+											}
+									],
+									{
+											"operator": "or"
+									},
+									[
+											[
+													{
+															"contractAddress": "0x67804E153F9675E2173142B76f9fe949b2b20bDE",
+															"conditionType": "evmContract",
+															"chain": "mumbai",
+															"functionName": "isAccessible",
+															"functionAbi": {
+																	"inputs": [
+																			{
+																					"internalType": "bytes32",
+																					"name": "assetId",
+																					"type": "bytes32"
+																			},
+																			{
+																					"internalType": "address",
+																					"name": "account",
+																					"type": "address"
+																			},
+																			{
+																					"internalType": "uint256",
+																					"name": "tier",
+																					"type": "uint256"
+																			}
+																	],
+																	"name": "isAccessible",
+																	"outputs": [
+																			{
+																					"internalType": "bool",
+																					"name": "",
+																					"type": "bool"
+																			}
+																	],
+																	"stateMutability": "view",
+																	"type": "function"
+															},
+															"returnValueTest": {
+																	"key": "",
+																	"comparator": "=",
+																	"value": "true"
+															},
+															"functionParams": [
+																	"0x11a8093021037a7d95d3073535c345041d3461e074525765069007de9beac8c5",
+																	":userAddress"
+															]
+													}
+											]
+									]
+							]
 					],
-					"name": "isCollected",
-					"outputs": [
-					  {
-						"internalType": "bool",
-						"name": "",
-						"type": "bool"
-					  }
-					],
-					"stateMutability": "view",
-					"type": "function"
-				  },
-				  "chain": "mumbai",
-				  "returnValueTest": {
-					"key": "",
-					"comparator": "=",
-					"value": "true"
-				  }
-				}
-			  ]
-			],
-			"decryptionConditionsType": "UnifiedAccessControlCondition"
-		  },
-		  "monetizationProvider": {
-			"protocol": "Lens",
-			"baseContract": "0x7582177F9E536aB0b6c721e11f383C326F2Ad1D5",
-			"unionContract": "0x7582177F9E536aB0b6c721e11f383C326F2Ad1D5",
-			"chainId": 80001,
-			"datatokenId": "0x8673f21B34319BD0709A7a501BD0fdB614A0a7A1"
-		  }
+					"decryptionConditionsType": "UnifiedAccessControlCondition"
+			}
 		});
 		let access_control = serde_json::from_value::<AccessControl>(data);
 		assert!(access_control.is_ok());
@@ -558,92 +567,11 @@ mod tests {
 		assert_eq!(
 			linked_ceramic_models.unwrap(),
 			vec![
-				"kjzl6hvfrbw6cagt694iim2wuecu7eumeds7qd0p6uzm8dnqsq69ll7kacm05gu".parse()?,
-				"kjzl6hvfrbw6c7gu88g66z28n81lcpbg6hu2t8pu2pui0sfnpvsrhqn3kxh9xai".parse()?,
-				"kjzl6hvfrbw6c86gt9j415yw2x8stmkotcrzpeutrbkp42i4z90gp5ibptz4sso".parse()?,
-				"kjzl6hvfrbw6catek36h3pep09k9gymfnla9k6ojlgrmwjogvjqg8q3zpybl1yu".parse()?,
+				"kjzl6hvfrbw6c89f0p1lyd1e78tel33qebisfdsi0prhhapn4rye45j1uj72tju".parse()?,
+				"kjzl6hvfrbw6cb2cjc4cprolj8vnykf41834r9chlay1582sjxleag1b0juy5kl".parse()?,
+				"kjzl6hvfrbw6c5m61z7cvgk4xwzx0aelqj4f9hmctn8ha64qtasd8e2779dswd5".parse()?,
 			]
 		);
-		Ok(())
-	}
-
-	#[test]
-	fn decode_access_control2() -> anyhow::Result<()> {
-		let data = json!({
-		  "encryptionProvider": {
-			"protocol": "Lit",
-			"encryptedSymmetricKey": "7b2263697068657274657874223a227239623862754d396e71756c2b4c2b656164526e775a7175412f3771572b546d64527942642f4a5275582b3945566776524a5a4143476b4e637145766971524b4f2f367377655948452b56476266444b34525853386d645572365448324b75706a414f6d32704d584d7435424a4643635043584a656e7439724e7343655a4369355030445951786679656a4f595457594845643853414c354565516c7a693148563878396d506562445032676a2f487169666c3537674776714d3964454f6d43336d4944222c2264617461546f456e637279707448617368223a2261663266313363323733353537353839383766313037356234356664663135383034353433386535333634383961323366653463386438306537626332336130227d",
-			"decryptionConditions": [
-			  {
-				"contractAddress": "",
-				"standardContractType": "",
-				"chain": "ethereum",
-				"method": "",
-				"parameters": [
-				  ":userAddress"
-				],
-				"returnValueTest": {
-				  "comparator": "=",
-				  "value": "0xCedf62df194542b3fb3E376848f87cE9afd3CdDe"
-				}
-			  },
-			  {
-				"operator": "and"
-			  },
-			  {
-				"conditionType": "evmBasic",
-				"contractAddress": "",
-				"standardContractType": "SIWE",
-				"chain": "ethereum",
-				"method": "",
-				"parameters": [
-				  ":resources"
-				],
-				"returnValueTest": {
-				  "comparator": "contains",
-				  "value": "ceramic://*?model=kjzl6hvfrbw6c6q29co83n8av8krlst35wbojuhxxs2nfuykirbq4nndjjvdu3q"
-				}
-			  },
-			  {
-				"operator": "and"
-			  },
-			  {
-				"conditionType": "evmBasic",
-				"contractAddress": "",
-				"standardContractType": "SIWE",
-				"chain": "ethereum",
-				"method": "",
-				"parameters": [
-				  ":resources"
-				],
-				"returnValueTest": {
-				  "comparator": "contains",
-				  "value": "ceramic://*?model=kjzl6hvfrbw6c887jhjyn9kz15x6jwna3kviup8x4ls2a0v6xb13qviipb8y7mg"
-				}
-			  },
-			  {
-				"operator": "and"
-			  },
-			  {
-				"conditionType": "evmBasic",
-				"contractAddress": "",
-				"standardContractType": "SIWE",
-				"chain": "ethereum",
-				"method": "",
-				"parameters": [
-				  ":resources"
-				],
-				"returnValueTest": {
-				  "comparator": "contains",
-				  "value": "ceramic://*?model=kjzl6hvfrbw6c8p5coctwqf8fohkebtw0hixh34yzcwaohwmqnde0mhs7pvk44e"
-				}
-			  }
-			],
-			"decryptionConditionsType": "AccessControlCondition"
-		  }
-		});
-		let access_control = serde_json::from_value::<AccessControl>(data);
-		assert!(access_control.is_err());
 		Ok(())
 	}
 }
