@@ -152,7 +152,7 @@ pub struct Dependence {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attached {
-	pub block_number: u64,
+	pub block_number: Option<u64>,
 }
 
 #[cfg(test)]
