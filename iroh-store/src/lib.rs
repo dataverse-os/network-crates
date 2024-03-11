@@ -13,7 +13,7 @@ use iroh::client::mem::{Doc, Iroh};
 pub use iroh::net::key::SecretKey;
 use iroh::node::Node;
 use iroh::rpc_protocol::DocTicket;
-use iroh_bytes::{store::flat::Store as BaoFileStore, util::runtime};
+use iroh_bytes::store::flat::Store as BaoFileStore;
 use iroh_sync::store::{Query, Store};
 use iroh_sync::{Author, AuthorId, NamespaceId, NamespacePublicKey, NamespaceSecret};
 
@@ -51,10 +51,9 @@ impl Client {
 		key_set: KeySet,
 		operator: Arc<dyn StreamOperator>,
 	) -> anyhow::Result<Self> {
-		let rt = runtime::Handle::from_current(num_cpus::get())?;
 
 		let bao_path = data_path.join("iroh/bao");
-		let bao_store = BaoFileStore::load(&bao_path, &bao_path, &bao_path, &rt)
+		let bao_store = BaoFileStore::load(&bao_path)
 			.await
 			.with_context(|| {
 				format!("Failed to load tasks database from {}", data_path.display())
@@ -67,7 +66,6 @@ impl Client {
 		doc_store.import_author(author.clone())?;
 
 		let node = Node::builder(bao_store, doc_store)
-			.runtime(&rt)
 			.secret_key(key)
 			.spawn()
 			.await?;
@@ -117,7 +115,8 @@ impl Client {
 		let mut stream = self.streams.get_many(Query::all()).await?;
 		while let Some(entry) = stream.try_next().await? {
 			if entry.key() == model_id.to_string().as_bytes().to_vec() {
-				let content = self.streams.read_to_bytes(&entry).await?;
+
+				let content = entry.content_bytes(&self.iroh).await?;
 				let key = NamespacePublicKey::from_bytes(content.as_ref().try_into()?)?;
 				return Ok(Some(NamespaceId::from(key)));
 			}
@@ -140,7 +139,7 @@ impl Client {
 		let key = stream_id.to_vec()?;
 		let mut stream = self.model.get_many(Query::key_exact(key)).await?;
 		if let Some(entry) = stream.try_next().await? {
-			let content = self.model.read_to_bytes(&entry).await?;
+			let content = entry.content_bytes(&self.iroh).await?;
 			let content: StreamId = StreamId::try_from(content.to_vec().as_slice())?;
 			return Ok(content);
 		}
@@ -167,7 +166,7 @@ impl Client {
 		let key = stream_id.to_vec()?;
 		let mut stream = doc.get_many(Query::key_exact(key)).await?;
 		if let Some(entry) = stream.try_next().await? {
-			let content = doc.read_to_bytes(&entry).await?;
+			let content = entry.content_bytes(&self.iroh).await?;
 			let content: Stream = serde_json::from_slice(&content)?;
 			return Ok(content);
 		}
@@ -179,7 +178,7 @@ impl Client {
 		let mut stream = doc.get_many(Query::all()).await?;
 		let mut result = Vec::new();
 		while let Some(entry) = stream.try_next().await? {
-			let content = doc.read_to_bytes(&entry).await?;
+			let content = entry.content_bytes(&self.iroh).await?;
 			result.push(serde_json::from_slice(&content)?);
 		}
 		Ok(result)
