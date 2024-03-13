@@ -21,7 +21,7 @@ pub struct Event {
 impl TryInto<dataverse_ceramic::Event> for Event {
 	type Error = anyhow::Error;
 
-	fn try_into(self) -> Result<dataverse_ceramic::Event, Self::Error> {
+	fn try_into(self) -> anyhow::Result<dataverse_ceramic::Event> {
 		let cid = Cid::try_from(self.cid)?;
 		let value = match cid.codec() {
 			0x71 => {

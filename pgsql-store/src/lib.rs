@@ -1,5 +1,6 @@
 pub mod models;
 pub mod schema;
+pub mod errors;
 
 use anyhow::Context;
 use dataverse_file_system::file::{IndexFile, StreamFileLoader};
@@ -9,6 +10,7 @@ use int_enum::IntEnum;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use errors::ConnectionPoolError;
 use ceramic_core::{Cid, StreamId};
 use dataverse_ceramic::{kubo, Ceramic, Event, EventsUploader, StreamState};
 use dataverse_ceramic::{EventsLoader, StreamLoader, StreamOperator, StreamsLoader};
@@ -23,12 +25,12 @@ pub struct Client {
 }
 
 impl Client {
-	pub fn new(operator: Arc<dyn StreamOperator>, dsn: &str) -> anyhow::Result<Self> {
+	pub fn new(operator: Arc<dyn StreamOperator>, dsn: &str) -> anyhow::Result<Self>{
 		let manager = ConnectionManager::<PgConnection>::new(dsn);
 
 		let pool = match Pool::builder().test_on_check_out(true).build(manager) {
 			Ok(it) => it,
-			Err(err) => anyhow::bail!("failed build connection pool: {}", err),
+			Err(err) => {anyhow::bail!(ConnectionPoolError::PoolInitializationError(format!("failed build connection pool: {}", err))); },
 		};
 		Ok(Self { operator, pool })
 	}

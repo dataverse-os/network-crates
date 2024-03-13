@@ -6,6 +6,7 @@ pub mod jws;
 pub mod operator;
 pub mod signed;
 pub mod verify;
+pub mod errors;
 
 use crate::stream::{LogType, StreamState};
 use anyhow::{Context, Result};
@@ -13,6 +14,7 @@ use ceramic_http_client::api::StateLog;
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid};
 use serde::{Deserialize, Serialize};
+use errors::EventError;
 
 pub use self::anchor::*;
 pub use self::ipld::*;
@@ -35,7 +37,7 @@ impl Event {
 				false => signed
 					.payload()?
 					.id
-					.context("missing id in data event payload")?,
+					.context(EventError::MissingId)?,
 			}),
 			EventValue::Anchor(anchor) => Ok(anchor.id),
 		}
@@ -66,13 +68,13 @@ impl Event {
 				let tip = state.log.last().context("missing last log")?.cid.clone();
 				if prev != tip {
 					{
-						anyhow::bail!("invalid prev cid: {} != {}", prev, tip)
+						anyhow::bail!(EventError::InvalidPreviousCid(prev, tip));
 					}
 				}
 			}
 			// data event missing prev
 			(None, EventValue::Signed(signed)) if !signed.is_gensis() => {
-				anyhow::bail!("invalid genesis event")
+				anyhow::bail!(EventError::InvalidGenesisError)
 			}
 			// anchor event missing prev
 			(None, EventValue::Anchor(_)) => anyhow::bail!("invalid genesis event"),
@@ -172,7 +174,7 @@ impl EventValue {
 				libipld::serde::from_ipld::<AnchorValue>(DagCborCodec.decode(&data)?)?,
 			)),
 			0x85 => Ok(EventValue::Signed(data.try_into()?)),
-			_ => anyhow::bail!("unsupported codec {}", codec),
+			_ => anyhow::bail!(EventError::UnsupportedCodecError(codec)),
 		}
 	}
 }

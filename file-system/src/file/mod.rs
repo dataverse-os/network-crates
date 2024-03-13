@@ -9,6 +9,8 @@ pub mod content_type;
 pub mod index_file;
 pub mod index_folder;
 
+mod errors;
+
 pub use index_file::*;
 
 use std::fmt::Display;
@@ -21,6 +23,7 @@ pub use operator::*;
 use ceramic_core::StreamId;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
+use errors::FileError;
 
 use self::status::Status;
 
@@ -77,7 +80,7 @@ impl StreamFile {
 		self.controller = state
 			.controllers()
 			.first()
-			.context("no controller")?
+			.context(FileError::NoControllerError)?
 			.clone();
 		Ok(())
 	}
@@ -95,7 +98,7 @@ impl StreamFile {
 		self.controller = state
 			.controllers()
 			.first()
-			.context("no controller")?
+			.context(FileError::NoControllerError)?
 			.clone();
 		Ok(())
 	}
