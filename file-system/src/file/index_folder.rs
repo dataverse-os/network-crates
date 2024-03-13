@@ -1,11 +1,10 @@
-use ceramic_core::Base64String;
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_repr::*;
 
-use super::access_control::AccessControl;
+use super::{access_control::AccessControl, common::decode_base64};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,10 +15,10 @@ pub struct IndexFolder {
 	pub updated_at: DateTime<Utc>,
 	pub fs_version: String,
 
-	pub access_control: Option<Base64String>,
+	pub access_control: Option<String>,
 	pub content_folder_ids: Vec<String>,
 
-	pub options: Option<Base64String>,
+	pub options: Option<String>,
 	pub deleted: Option<bool>,
 	pub reserved: Option<String>,
 }
@@ -27,7 +26,10 @@ pub struct IndexFolder {
 impl IndexFolder {
 	pub fn options(&self) -> anyhow::Result<Option<FolderOptions>> {
 		match &self.options {
-			Some(options) => Ok(serde_json::from_slice(options.to_vec()?.as_ref())?),
+			Some(options) => {
+				let decoded = decode_base64(options)?;
+				Ok(serde_json::from_slice(&decoded)?)
+			}
 			None => Ok(None),
 		}
 	}
@@ -35,7 +37,8 @@ impl IndexFolder {
 	pub fn access_control(&self) -> anyhow::Result<Option<AccessControl>> {
 		match &self.access_control {
 			Some(access_control) => {
-				serde_json::from_slice(access_control.to_vec()?.as_ref()).map_err(Into::into)
+				let decoded = decode_base64(access_control)?;
+				serde_json::from_slice(&decoded).map_err(Into::into)
 			}
 			None => {
 				if self.folder_type != FolderType::PublicFolderType {
@@ -66,7 +69,7 @@ pub enum FolderType {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use base64::{engine::general_purpose, Engine};
+
 	use serde_json::json;
 
 	#[test]
@@ -94,12 +97,11 @@ mod tests {
 	#[test]
 	fn test_decode_folder_options() {
 		let encoded_data = "eyJzaWduYWxzIjpbeyJ0eXBlIjoyLCJpZCI6IjB4YmRiNmYwZmViYTMwM2RiMTcyYjU1NzcxMmNiZjI3YTYzM2MzYzZiM2NiNjg2YjI1ZGFjMTIxZTk2ODFjZmQ1NSJ9XX0";
-		let decoded_data = general_purpose::STANDARD_NO_PAD
-			.decode(encoded_data)
-			.unwrap();
-		let decoded_str = String::from_utf8(decoded_data).unwrap();
+		let decoded = decode_base64(encoded_data);
+		assert!(decoded.is_ok());
+		let decoded = decoded.unwrap();
 
-		let folder_options: FolderOptions = serde_json::from_str(&decoded_str).unwrap();
+		let folder_options: FolderOptions = serde_json::from_slice(&decoded).unwrap();
 
 		assert_eq!(
 			folder_options.signals,

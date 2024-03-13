@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use async_std::task;
-use ceramic_core::{Base64String, Cid};
+use ceramic_core::Cid;
 use chrono::{DateTime, Utc};
 use dataverse_ceramic::{self as ceramic, StreamId};
 use dataverse_core::store::dapp;
@@ -14,10 +14,11 @@ use crate::policy::Policy;
 
 use super::{
 	access_control::AccessControl,
+	common::decode_base64,
 	content_type::{ContentType, ContentTypeResourceType},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexFile {
 	/// file name, encrypted when payable type
@@ -28,37 +29,23 @@ pub struct IndexFile {
 	pub created_at: DateTime<Utc>,
 	pub fs_version: Option<String>,
 	pub updated_at: DateTime<Utc>,
-	pub content_type: Base64String,
-	pub access_control: Option<Base64String>,
+	pub content_type: String,
+	pub access_control: Option<String>,
 	pub deleted: Option<bool>,
 	pub reserved: Option<String>,
 }
 
-impl Default for IndexFile {
-	fn default() -> Self {
-		Self {
-			file_name: Default::default(),
-			file_type: Default::default(),
-			content_id: Default::default(),
-			created_at: Default::default(),
-			fs_version: Default::default(),
-			updated_at: Default::default(),
-			content_type: Base64String::from(vec![]),
-			access_control: None,
-			deleted: None,
-			reserved: None,
-		}
-	}
-}
-
 impl IndexFile {
 	pub fn content_type(&self) -> anyhow::Result<ContentType> {
-		Ok(serde_json::from_slice(&self.content_type.to_vec()?)?)
+		Ok(serde_json::from_slice(&decode_base64(&self.content_type)?)?)
 	}
 
 	pub fn access_control(&self) -> anyhow::Result<Option<AccessControl>> {
 		match &self.access_control {
-			Some(acl) => Ok(serde_json::from_slice(&acl.to_vec()?)?),
+			Some(acl) => {
+				let decoded = decode_base64(&acl)?;
+				Ok(serde_json::from_slice(&decoded)?)
+			}
 			None => Ok(None),
 		}
 	}

@@ -1,9 +1,11 @@
-use ceramic_core::{Base64String, StreamId};
+use ceramic_core::StreamId;
 use chrono::{DateTime, Utc};
 use dataverse_core::store::dapp;
 use serde::{Deserialize, Serialize};
 
 use crate::policy::Policy;
+
+use super::common::decode_base64;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,14 +20,14 @@ pub struct ActionFile {
 	pub deleted: Option<bool>,
 	pub reserved: Option<String>,
 
-	pub action: Base64String,
+	pub action: String,
 	// must be a file or union
 	pub relation_id: StreamId,
 }
 
 impl ActionFile {
 	pub fn action(&self) -> anyhow::Result<Action> {
-		Ok(serde_json::from_slice(&self.action.to_vec()?)?)
+		Ok(serde_json::from_slice(&decode_base64(&self.action)?)?)
 	}
 }
 
@@ -99,8 +101,8 @@ mod tests {
 	#[test]
 	fn test_deserialize_action() {
 		let content = "eyJhY3Rpb25UeXBlIjoiTElLRSIsImNvbW1lbnQiOiJJIGxpa2UgaXQhIiwiaXNSZWxhdGlvbklkRW5jcnlwdGVkIjpmYWxzZSwiaXNDb21tZW50RW5jcnlwdGVkIjpmYWxzZX0";
-		let content = Base64String::from(content.to_string());
-		let action = serde_json::from_slice::<Action>(&content.to_vec().unwrap());
+		let content = decode_base64(content).unwrap();
+		let action = serde_json::from_slice::<Action>(&content);
 		assert!(action.is_ok());
 		let action = action.unwrap();
 		assert_eq!(
