@@ -21,9 +21,9 @@ use dataverse_ceramic::StreamState;
 pub use operator::*;
 
 use ceramic_core::StreamId;
+use errors::StreamFileError;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
-use errors::FileError;
 
 use self::status::Status;
 
@@ -80,7 +80,7 @@ impl StreamFile {
 		self.controller = state
 			.controllers()
 			.first()
-			.context(FileError::NoControllerError)?
+			.context(StreamFileError::NoControllerError)?
 			.clone();
 		Ok(())
 	}
@@ -98,7 +98,7 @@ impl StreamFile {
 		self.controller = state
 			.controllers()
 			.first()
-			.context(FileError::NoControllerError)?
+			.context(StreamFileError::NoControllerError)?
 			.clone();
 		Ok(())
 	}

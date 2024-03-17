@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_repr::*;
 
+use crate::file::errors::IndexFolderError;
+
 use super::access_control::AccessControl;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,7 +41,7 @@ impl IndexFolder {
 			}
 			None => {
 				if self.folder_type != FolderType::PublicFolderType {
-					anyhow::bail!("access control is missing for folder")
+					anyhow::bail!(IndexFolderError::AccessControlMissing)
 				}
 				Ok(None)
 			}

@@ -1,17 +1,16 @@
-mod task;
 mod errors;
+mod task;
 
 pub use task::*;
 
 use anyhow::{Context, Result};
 use ceramic_core::{Base64UrlString, Cid, StreamId};
-use errors::HttpError;
 use ceramic_event::{DidDocument, JwkSigner};
 use ceramic_http_client::{api, remote::CeramicRemoteHttpClient, FilterQuery};
+use errors::HttpError;
 use int_enum::IntEnum;
 use json_patch::{patch, Patch};
 use ssi::jwk::Algorithm;
-
 
 use crate::{
 	did::generate_did_str,
@@ -143,7 +142,10 @@ impl StreamLoader for Client {
 	) -> anyhow::Result<StreamState> {
 		let ceramic = Self::init(&ceramic.endpoint)?;
 		let stream = ceramic.get(stream_id).await?;
-		let state = stream.state.context(HttpError::StreamLoadError)?.try_into()?;
+		let state = stream
+			.state
+			.context(HttpError::StreamLoadError)?
+			.try_into()?;
 		Ok(state)
 	}
 }

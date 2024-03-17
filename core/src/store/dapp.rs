@@ -6,6 +6,8 @@ use dataverse_ceramic::Ceramic;
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
+use crate::store::errors::ModelStoreError;
+
 #[derive(Debug, Clone)]
 pub struct Model {
 	pub id: StreamId,
@@ -79,7 +81,7 @@ impl ModelStore {
 			};
 		}
 
-		anyhow::bail!("dapp {} not found", dapp_id)
+		anyhow::bail!(ModelStoreError::DappNotFound(dapp_id.clone()))
 	}
 
 	async fn get_ceramic(&mut self, ceramic_str: &String) -> anyhow::Result<Ceramic> {
@@ -90,7 +92,7 @@ impl ModelStore {
 		let chains = dataverse_ceramic::http::Client::chains(&ceramic_str).await?;
 		let ceramic = Ceramic {
 			endpoint: ceramic_str.clone(),
-			network: chains.first().context("ceramic not in networks")?.network(),
+			network: chains.first().context(ModelStoreError::CeramicNotInNetworks)?.network(),
 		};
 		self.ceramic.insert(ceramic_str.clone(), ceramic.clone());
 		Ok(ceramic)
@@ -170,11 +172,7 @@ impl ModelStore {
 			}
 		}
 
-		anyhow::bail!(
-			"model with name `{}` not found in dapp {}",
-			model_name,
-			dapp_id
-		)
+		anyhow::bail!(ModelStoreError::ModelNotInDapp(model_name.into(), dapp_id.clone()))
 	}
 
 	pub async fn get_model(&mut self, model_id: &StreamId) -> anyhow::Result<Model> {
@@ -195,6 +193,6 @@ impl ModelStore {
 				return Ok(model);
 			}
 		}
-		anyhow::bail!("model with id `{}` not found in dapp table", model_id)
+		anyhow::bail!(ModelStoreError::ModelIDNotInDapp(model_id.clone()))
 	}
 }

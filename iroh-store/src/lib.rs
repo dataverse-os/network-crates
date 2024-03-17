@@ -1,3 +1,4 @@
+mod errors;
 pub mod file;
 
 use std::sync::Arc;
@@ -16,6 +17,8 @@ use iroh::rpc_protocol::DocTicket;
 use iroh_bytes::{store::flat::Store as BaoFileStore, util::runtime};
 use iroh_sync::store::{Query, Store};
 use iroh_sync::{Author, AuthorId, NamespaceId, NamespacePublicKey, NamespaceSecret};
+
+use crate::errors::IrohClientError;
 
 pub struct Client {
 	pub iroh: Iroh,
@@ -56,9 +59,7 @@ impl Client {
 		let bao_path = data_path.join("iroh/bao");
 		let bao_store = BaoFileStore::load(&bao_path, &bao_path, &bao_path, &rt)
 			.await
-			.with_context(|| {
-				format!("Failed to load tasks database from {}", data_path.display())
-			})?;
+			.context(IrohClientError::TaskLoadingFailed(data_path.clone()))?;
 
 		let path = data_path.join("iroh/docs.redb");
 		let doc_store = iroh_sync::store::fs::Store::new(path)?;
@@ -144,7 +145,9 @@ impl Client {
 			let content: StreamId = StreamId::try_from(content.to_vec().as_slice())?;
 			return Ok(content);
 		}
-		anyhow::bail!("model of stream `{}` not found", stream_id)
+		anyhow::bail!(IrohClientError::ModelOfStreamNotFoundError(
+			stream_id.clone()
+		))
 	}
 
 	async fn set_model_of_stream(
@@ -171,7 +174,10 @@ impl Client {
 			let content: Stream = serde_json::from_slice(&content)?;
 			return Ok(content);
 		}
-		anyhow::bail!("stream `{}` not found in model `{}`", stream_id, model_id)
+		anyhow::bail!(IrohClientError::StreamNotInModel(
+			stream_id.clone(),
+			model_id.clone()
+		))
 	}
 
 	async fn list_stream_in_model(&self, model_id: &StreamId) -> anyhow::Result<Vec<Stream>> {
@@ -275,7 +281,7 @@ impl StreamLoader for Client {
 			None => {
 				self.load_stream(stream_id)
 					.await?
-					.context(format!("stream not found: {}", stream_id))?
+					.context(IrohClientError::StreamNotFound(stream_id.clone()))?
 					.tip
 			}
 		};

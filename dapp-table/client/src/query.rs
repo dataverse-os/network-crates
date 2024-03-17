@@ -54,7 +54,12 @@ impl Client {
 			.send()
 			.await?;
 		let response_body: Response<get_dapp::ResponseData> = res.json().await?;
-		let dapp = response_body.data.context(DappLookupError::MissingResponseData(request_body.operation_name.into()))?.get_dapp;
+		let dapp = response_body
+			.data
+			.context(DappLookupError::MissingResponseData(
+				request_body.operation_name.into(),
+			))?
+			.get_dapp;
 		Ok(dapp)
 	}
 
@@ -68,7 +73,12 @@ impl Client {
 			.send()
 			.await?;
 		let response_body: Response<get_dapps::ResponseData> = res.json().await?;
-		let dapp = response_body.data.context(DappLookupError::MissingResponseData(request_body.operation_name.into()))?.get_dapps;
+		let dapp = response_body
+			.data
+			.context(DappLookupError::MissingResponseData(
+				request_body.operation_name.into(),
+			))?
+			.get_dapps;
 		Ok(dapp)
 	}
 }

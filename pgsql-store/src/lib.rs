@@ -1,6 +1,6 @@
+pub mod errors;
 pub mod models;
 pub mod schema;
-pub mod errors;
 
 use anyhow::Context;
 use dataverse_file_system::file::{IndexFile, StreamFileLoader};
@@ -10,13 +10,13 @@ use int_enum::IntEnum;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use errors::ConnectionPoolError;
 use ceramic_core::{Cid, StreamId};
 use dataverse_ceramic::{kubo, Ceramic, Event, EventsUploader, StreamState};
 use dataverse_ceramic::{EventsLoader, StreamLoader, StreamOperator, StreamsLoader};
 use dataverse_core::stream::{Stream, StreamStore};
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
+use errors::{ConnectionPoolError, PgSqlClientError};
 
 #[derive(Clone)]
 pub struct Client {
@@ -25,12 +25,17 @@ pub struct Client {
 }
 
 impl Client {
-	pub fn new(operator: Arc<dyn StreamOperator>, dsn: &str) -> anyhow::Result<Self>{
+	pub fn new(operator: Arc<dyn StreamOperator>, dsn: &str) -> anyhow::Result<Self> {
 		let manager = ConnectionManager::<PgConnection>::new(dsn);
 
 		let pool = match Pool::builder().test_on_check_out(true).build(manager) {
 			Ok(it) => it,
-			Err(err) => {anyhow::bail!(ConnectionPoolError::PoolInitializationError(format!("failed build connection pool: {}", err))); },
+			Err(err) => {
+				anyhow::bail!(ConnectionPoolError::PoolInitializationError(format!(
+					"failed build connection pool: {}",
+					err
+				)));
+			}
 		};
 		Ok(Self { operator, pool })
 	}
@@ -71,12 +76,15 @@ impl Client {
 				}
 			}
 			let mut prev = stream_id.cid;
-			let genesis = map.get(&prev).context("missing genesis")?;
+			let genesis = map.get(&prev).context(PgSqlClientError::MissingGenesis)?;
 			result.push(genesis.clone());
 			while let Some(cid) = prev_map.get(&prev) {
 				let event = match map.get(&cid) {
 					Some(event) => event,
-					None => anyhow::bail!("missing event {} for stream {}", cid, stream_id),
+					None => anyhow::bail!(PgSqlClientError::MissingEventForStream(
+						cid.clone(),
+						stream_id.clone()
+					)),
 				};
 				result.push(event.clone());
 				prev = cid.clone();
@@ -124,7 +132,7 @@ impl StreamStore for Client {
 			.execute(conn);
 		if let Err(err) = execute {
 			tracing::error!(?stream, "db exec error: {}", err);
-			anyhow::bail!("{}", err)
+			anyhow::bail!(PgSqlClientError::DbExecError)
 		}
 		Ok(())
 	}

@@ -1,20 +1,20 @@
 pub mod anchor;
 pub mod cacao;
 pub mod commit;
+pub mod errors;
 pub mod ipld;
 pub mod jws;
 pub mod operator;
 pub mod signed;
 pub mod verify;
-pub mod errors;
 
 use crate::stream::{LogType, StreamState};
 use anyhow::{Context, Result};
 use ceramic_http_client::api::StateLog;
+use errors::EventError;
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid};
 use serde::{Deserialize, Serialize};
-use errors::EventError;
 
 pub use self::anchor::*;
 pub use self::ipld::*;
@@ -34,10 +34,7 @@ impl Event {
 		match &self.value {
 			EventValue::Signed(signed) => Ok(match signed.is_gensis() {
 				true => self.cid,
-				false => signed
-					.payload()?
-					.id
-					.context(EventError::MissingId)?,
+				false => signed.payload()?.id.context(EventError::MissingId)?,
 			}),
 			EventValue::Anchor(anchor) => Ok(anchor.id),
 		}
@@ -65,7 +62,12 @@ impl Event {
 		match (prev_str, &self.value) {
 			// missing matching prev
 			(Some(prev), _) => {
-				let tip = state.log.last().context("missing last log")?.cid.clone();
+				let tip = state
+					.log
+					.last()
+					.context(EventError::MissingLastLog)?
+					.cid
+					.clone();
 				if prev != tip {
 					{
 						anyhow::bail!(EventError::InvalidPreviousCid(prev, tip));

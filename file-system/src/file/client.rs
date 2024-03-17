@@ -8,6 +8,7 @@ use dataverse_core::store::dapp;
 use dataverse_core::stream::{Stream, StreamStore};
 use int_enum::IntEnum;
 
+use crate::file::errors::FileClientError;
 use crate::file::status::Status;
 
 use super::index_file::IndexFile;
@@ -93,12 +94,7 @@ impl StreamFileTrait for Client {
 		let model_id = &stream_state.must_model()?;
 		let model = dapp::get_model(model_id).await?;
 		if model.dapp_id != dapp_id.clone() {
-			anyhow::bail!(
-				"stream_id {} with model_id {} not belong to dapp {}",
-				stream_id,
-				model_id,
-				dapp_id
-			);
+			anyhow::bail!(FileClientError::StreamWithModelNotInDapp(stream_id.clone(), model_id.clone(), dapp_id.clone()));
 		}
 		match model.name.as_str() {
 			"indexFile" => {
@@ -346,10 +342,7 @@ impl StreamEventSaver for Client {
 						),
 						None => {
 							if !signed.is_gensis() {
-								anyhow::bail!(
-									"publishing commit with stream_id {} not found in store",
-									stream_id
-								);
+								anyhow::bail!(FileClientError::CommitStreamIdNotFoundOnStore(stream_id.clone()));
 							}
 							(
 								Stream::new(dapp_id, stream_id.r#type.int_value(), event, None)?,
@@ -365,7 +358,7 @@ impl StreamEventSaver for Client {
 
 				if let Some(prev) = event.prev()? {
 					if commits.iter().all(|ele| ele.cid != prev) {
-						anyhow::bail!("donot have prev commit");
+						anyhow::bail!(FileClientError::NoPrevCommitFound);
 					}
 				}
 				commits.push(event.clone());
@@ -394,7 +387,7 @@ impl StreamEventSaver for Client {
 				Ok(state)
 			}
 			EventValue::Anchor(_) => {
-				anyhow::bail!("anchor commit not supported");
+				anyhow::bail!(FileClientError::AnchorCommitUnsupported);
 			}
 		}
 	}

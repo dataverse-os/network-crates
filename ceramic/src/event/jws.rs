@@ -6,6 +6,8 @@ use libipld::multihash::{Code, MultihashDigest};
 use libipld::prelude::Codec;
 use libipld::Cid;
 
+use crate::event::errors::JwsError;
+
 pub trait ToCid {
 	fn cid(&self) -> anyhow::Result<Cid>;
 	fn to_vec(&self) -> anyhow::Result<Vec<u8>>;
@@ -112,7 +114,7 @@ impl TryInto<JsonWebSignature> for Jws {
 		let Self(jws) = self;
 		let link = match jws.link.clone() {
 			Some(val) => val,
-			None => anyhow::bail!("JWS does not have a link"),
+			None => anyhow::bail!(JwsError::NoLink),
 		};
 		let signatures = jws
 			.signatures

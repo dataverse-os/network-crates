@@ -1,4 +1,4 @@
-mod query;
 mod errors;
+mod query;
 
 pub use query::*;

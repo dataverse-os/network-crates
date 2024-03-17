@@ -8,6 +8,8 @@ use dataverse_ceramic::{
 use diesel::prelude::*;
 use int_enum::IntEnum;
 
+use crate::errors::PgSqlEventError;
+
 #[derive(Debug, Queryable, Selectable, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::events)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -35,7 +37,7 @@ impl TryInto<dataverse_ceramic::Event> for Event {
 				let cacao_block = self.blocks[2].clone();
 				SignedValue::try_from((jws, linked_block, cacao_block))?.into()
 			}
-			_ => anyhow::bail!("unsupported codec {}", cid.codec()),
+			_ => anyhow::bail!(PgSqlEventError::UnsupportedCodecError(cid.codec())),
 		};
 
 		Ok(dataverse_ceramic::Event { cid, value })

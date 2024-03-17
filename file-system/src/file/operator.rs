@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use ceramic_http_client::{FilterQuery, OperationFilter};
 use dataverse_ceramic::{event::EventsUploader, Ceramic, StreamId, StreamState, StreamsLoader};
 
+use crate::file::errors::StreamFileError;
+
 use super::index_file::IndexFile;
 
 #[async_trait::async_trait]
@@ -34,7 +36,7 @@ pub trait StreamFileLoader: StreamsLoader + EventsUploader + Send + Sync {
 				}
 			}
 		}
-		anyhow::bail!("index file with content_id {} not found", content_id)
+		anyhow::bail!(StreamFileError::IndexFileWithIdNotFound(content_id.clone()))
 	}
 }
 
@@ -55,12 +57,12 @@ impl StreamFileLoader for dataverse_ceramic::http::Client {
 		let query = Some(FilterQuery::Where(where_filter));
 		let streams = self.query_model(ceramic, None, model_id, query).await?;
 		if streams.len() != 1 {
-			anyhow::bail!("index file not found")
+			anyhow::bail!(StreamFileError::IndexFileNotFound)
 		}
 
 		let state = match streams.first() {
 			Some(state) => state,
-			_ => anyhow::bail!("index file with contentId {} not found", content_id),
+			_ => anyhow::bail!(StreamFileError::IndexFileWithIdNotFound(content_id.clone())),
 		};
 		Ok((
 			state.clone(),
