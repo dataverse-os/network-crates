@@ -229,13 +229,13 @@ impl StreamFileTrait for Client {
 						};
 
 						// check if index_folder access control is valid
-						if let Err(err) = index_folder.access_control() {
-							file.write_status(
-								Status::BrokenFolder,
-								format!("access control error: {}", err),
-							);
-							return Some(file);
-						}
+						// if let Err(err) = index_folder.access_control() {
+						// 	file.write_status(
+						// 		Status::BrokenFolder,
+						// 		format!("access control error: {}", err),
+						// 	);
+						// 	return Some(file);
+						// }
 
 						// check if index_folder options contains every signals
 						let required_signals: Vec<_> = options
