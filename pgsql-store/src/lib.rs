@@ -1,3 +1,4 @@
+pub mod errors;
 pub mod models;
 pub mod schema;
 
@@ -15,6 +16,7 @@ use dataverse_ceramic::{EventsLoader, StreamLoader, StreamOperator, StreamsLoade
 use dataverse_core::stream::{Stream, StreamStore};
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
+use errors::{ConnectionPoolError, PgSqlClientError};
 
 #[derive(Clone)]
 pub struct Client {
@@ -28,7 +30,12 @@ impl Client {
 
 		let pool = match Pool::builder().test_on_check_out(true).build(manager) {
 			Ok(it) => it,
-			Err(err) => anyhow::bail!("failed build connection pool: {}", err),
+			Err(err) => {
+				anyhow::bail!(ConnectionPoolError::PoolInitializationError(format!(
+					"failed build connection pool: {}",
+					err
+				)));
+			}
 		};
 		Ok(Self { operator, pool })
 	}
@@ -65,19 +72,22 @@ impl Client {
 			let mut prev_map: HashMap<Cid, Cid> = HashMap::new();
 			for (cid, event) in &map {
 				if let Some(prev) = event.prev()? {
-					prev_map.insert(prev, cid.clone());
+					prev_map.insert(prev, *cid);
 				}
 			}
 			let mut prev = stream_id.cid;
-			let genesis = map.get(&prev).context("missing genesis")?;
+			let genesis = map.get(&prev).context(PgSqlClientError::MissingGenesis)?;
 			result.push(genesis.clone());
 			while let Some(cid) = prev_map.get(&prev) {
-				let event = match map.get(&cid) {
+				let event = match map.get(cid) {
 					Some(event) => event,
-					None => anyhow::bail!("missing event {} for stream {}", cid, stream_id),
+					None => anyhow::bail!(PgSqlClientError::MissingEventForStream(
+						*cid,
+						stream_id.clone()
+					)),
 				};
 				result.push(event.clone());
-				prev = cid.clone();
+				prev = *cid;
 			}
 		}
 
@@ -122,7 +132,7 @@ impl StreamStore for Client {
 			.execute(conn);
 		if let Err(err) = execute {
 			tracing::error!(?stream, "db exec error: {}", err);
-			anyhow::bail!("{}", err)
+			anyhow::bail!(PgSqlClientError::DbExecError)
 		}
 		Ok(())
 	}

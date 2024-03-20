@@ -10,6 +10,8 @@ pub mod content_type;
 pub mod index_file;
 pub mod index_folder;
 
+mod errors;
+
 pub use index_file::*;
 
 use std::fmt::Display;
@@ -20,6 +22,7 @@ use dataverse_ceramic::StreamState;
 pub use operator::*;
 
 use ceramic_core::StreamId;
+use errors::StreamFileError;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
 
@@ -27,6 +30,7 @@ use self::status::Status;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct StreamFile {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub file_id: Option<StreamId>,
@@ -48,21 +52,7 @@ pub struct StreamFile {
 	pub verified_status_desc: Option<String>,
 }
 
-impl Default for StreamFile {
-	fn default() -> Self {
-		Self {
-			file_id: None,
-			file_model_id: None,
-			file: Default::default(),
-			content_id: Default::default(),
-			model_id: Default::default(),
-			content: Default::default(),
-			controller: Default::default(),
-			verified_status: Default::default(),
-			verified_status_desc: Default::default(),
-		}
-	}
-}
+
 
 impl StreamFile {
 	pub fn new_with_file(state: StreamState) -> anyhow::Result<Self> {
@@ -78,7 +68,7 @@ impl StreamFile {
 		self.controller = state
 			.controllers()
 			.first()
-			.context("no controller")?
+			.context(StreamFileError::NoControllerError)?
 			.clone();
 		Ok(())
 	}
@@ -96,13 +86,13 @@ impl StreamFile {
 		self.controller = state
 			.controllers()
 			.first()
-			.context("no controller")?
+			.context(StreamFileError::NoControllerError)?
 			.clone();
 		Ok(())
 	}
 
 	pub fn write_status(&mut self, status: Status, desc: String) {
-		self.verified_status = status.clone();
+		self.verified_status = status;
 		self.verified_status_desc = Some(format!("{:?}: {}", status, desc));
 	}
 }

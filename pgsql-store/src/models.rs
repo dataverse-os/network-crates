@@ -8,6 +8,8 @@ use dataverse_ceramic::{
 use diesel::prelude::*;
 use int_enum::IntEnum;
 
+use crate::errors::PgSqlEventError;
+
 #[derive(Debug, Queryable, Selectable, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::events)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -21,7 +23,7 @@ pub struct Event {
 impl TryInto<dataverse_ceramic::Event> for Event {
 	type Error = anyhow::Error;
 
-	fn try_into(self) -> Result<dataverse_ceramic::Event, Self::Error> {
+	fn try_into(self) -> anyhow::Result<dataverse_ceramic::Event> {
 		let cid = Cid::try_from(self.cid)?;
 		let value = match cid.codec() {
 			0x71 => {
@@ -35,7 +37,7 @@ impl TryInto<dataverse_ceramic::Event> for Event {
 				let cacao_block = self.blocks[2].clone();
 				SignedValue::try_from((jws, linked_block, cacao_block))?.into()
 			}
-			_ => anyhow::bail!("unsupported codec {}", cid.codec()),
+			_ => anyhow::bail!(PgSqlEventError::UnsupportedCodecError(cid.codec())),
 		};
 
 		Ok(dataverse_ceramic::Event { cid, value })
@@ -104,7 +106,7 @@ impl TryInto<dataverse_core::stream::Stream> for Stream {
 
 	fn try_into(self) -> Result<dataverse_core::stream::Stream, Self::Error> {
 		let model = match &self.model_id {
-			Some(model) => Some(StreamId::from_str(&model)?),
+			Some(model) => Some(StreamId::from_str(model)?),
 			None => None,
 		};
 		let stream_id = self.stream_id()?;

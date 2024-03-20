@@ -1,6 +1,7 @@
 pub mod anchor;
 pub mod cacao;
 pub mod commit;
+pub mod errors;
 pub mod ipld;
 pub mod jws;
 pub mod operator;
@@ -10,6 +11,7 @@ pub mod verify;
 use crate::stream::{LogType, StreamState};
 use anyhow::{Context, Result};
 use ceramic_http_client::api::StateLog;
+use errors::EventError;
 use libipld::prelude::Codec;
 use libipld::{cbor::DagCborCodec, cid::Cid};
 use serde::{Deserialize, Serialize};
@@ -32,10 +34,7 @@ impl Event {
 		match &self.value {
 			EventValue::Signed(signed) => Ok(match signed.is_gensis() {
 				true => self.cid,
-				false => signed
-					.payload()?
-					.id
-					.context("missing id in data event payload")?,
+				false => signed.payload()?.id.context(EventError::MissingId)?,
 			}),
 			EventValue::Anchor(anchor) => Ok(anchor.id),
 		}
@@ -63,16 +62,21 @@ impl Event {
 		match (prev_str, &self.value) {
 			// missing matching prev
 			(Some(prev), _) => {
-				let tip = state.log.last().context("missing last log")?.cid.clone();
+				let tip = state
+					.log
+					.last()
+					.context(EventError::MissingLastLog)?
+					.cid
+					.clone();
 				if prev != tip {
 					{
-						anyhow::bail!("invalid prev cid: {} != {}", prev, tip)
+						anyhow::bail!(EventError::InvalidPreviousCid(prev, tip));
 					}
 				}
 			}
 			// data event missing prev
 			(None, EventValue::Signed(signed)) if !signed.is_gensis() => {
-				anyhow::bail!("invalid genesis event")
+				anyhow::bail!(EventError::InvalidGenesisError)
 			}
 			// anchor event missing prev
 			(None, EventValue::Anchor(_)) => anyhow::bail!("invalid genesis event"),
@@ -172,7 +176,7 @@ impl EventValue {
 				libipld::serde::from_ipld::<AnchorValue>(DagCborCodec.decode(&data)?)?,
 			)),
 			0x85 => Ok(EventValue::Signed(data.try_into()?)),
-			_ => anyhow::bail!("unsupported codec {}", codec),
+			_ => anyhow::bail!(EventError::UnsupportedCodecError(codec)),
 		}
 	}
 }

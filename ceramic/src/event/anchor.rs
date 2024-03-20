@@ -27,7 +27,7 @@ impl AnchorValue {
 			Some(proof_block) => {
 				let node = DagCborCodec.decode(proof_block)?;
 				let proof = libipld::serde::from_ipld::<AnchorProof>(node);
-				return Ok(Some(proof?));
+				Ok(Some(proof?))
 			}
 			None => Ok(None),
 		}
@@ -46,9 +46,9 @@ impl StreamStateApplyer for AnchorValue {
 	}
 }
 
-impl Into<EventValue> for AnchorValue {
-	fn into(self) -> EventValue {
-		EventValue::Anchor(self)
+impl From<AnchorValue> for EventValue {
+	fn from(val: AnchorValue) -> Self {
+		EventValue::Anchor(val)
 	}
 }
 
@@ -107,17 +107,17 @@ pub fn cid_to_eth_hash(tx_hash: Cid) -> anyhow::Result<H256> {
 	let digest = tx_hash.hash().digest();
 	// convert digest to H256
 	let mut bytes = [0u8; 32];
-	bytes.copy_from_slice(&digest);
+	bytes.copy_from_slice(digest);
 	Ok(H256::from(bytes))
 }
 
-impl Into<crate::stream::AnchorProof> for AnchorProof {
-	fn into(self) -> crate::stream::AnchorProof {
+impl From<AnchorProof> for crate::stream::AnchorProof {
+	fn from(val: AnchorProof) -> Self {
 		crate::stream::AnchorProof {
-			chain_id: self.chain_id,
-			root: self.root.to_bytes().into(),
-			tx_hash: self.tx_hash.to_bytes().into(),
-			tx_type: self.tx_type,
+			chain_id: val.chain_id,
+			root: val.root.to_bytes().into(),
+			tx_hash: val.tx_hash.to_bytes().into(),
+			tx_type: val.tx_type,
 		}
 	}
 }

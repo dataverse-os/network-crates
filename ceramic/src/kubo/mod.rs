@@ -38,7 +38,7 @@ pub fn new(base_path: &str) -> Client {
 
 	// Using HTTP
 	let client = Box::new(
-		ceramic_kubo_rpc_server::Client::try_new_http(&base_path)
+		ceramic_kubo_rpc_server::Client::try_new_http(base_path)
 			.expect("Failed to create HTTP client"),
 	);
 	Box::new(client.with_context(context))
@@ -150,7 +150,7 @@ impl<T: BlockUploader + AnchorRuester + MessageUpdatePublisher + Send + Sync> Ev
 			// don't need to upload it
 			event::EventValue::Anchor(_) => {}
 		}
-		self.request_anchor(&ceramic, &stream_id, commit).await?;
+		self.request_anchor(ceramic, stream_id, commit).await?;
 		Ok(())
 	}
 

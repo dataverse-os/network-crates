@@ -5,6 +5,7 @@ use dataverse_ceramic::Ceramic;
 use dataverse_core::stream::StreamStore;
 use dataverse_file_system::file::StreamFileLoader;
 
+use crate::errors::IrohClientError;
 use crate::Client;
 
 impl StreamFileLoader for Client {}
@@ -34,7 +35,7 @@ impl EventsLoader for Client {
 			None => {
 				self.load_stream(stream_id)
 					.await?
-					.context(format!("stream not found: {}", stream_id))?
+					.context(IrohClientError::StreamNotFound(stream_id.clone()))?
 					.tip
 			}
 		};

@@ -8,6 +8,7 @@ use dataverse_core::store::dapp;
 use dataverse_core::stream::{Stream, StreamStore};
 use int_enum::IntEnum;
 
+use crate::file::errors::FileClientError;
 use crate::file::status::Status;
 
 use super::index_file::IndexFile;
@@ -35,7 +36,7 @@ impl Client {
 		app_id: &uuid::Uuid,
 		model: FileModel,
 	) -> anyhow::Result<dataverse_core::store::dapp::Model> {
-		dapp::get_model_by_name(&app_id, &model.to_string()).await
+		dapp::get_model_by_name(app_id, &model.to_string()).await
 	}
 
 	pub async fn load_stream_by_app_id(
@@ -88,17 +89,12 @@ impl StreamFileTrait for Client {
 		let ceramic = dapp::get_dapp_ceramic(dapp_id).await?;
 		let stream_state = self
 			.operator
-			.load_stream_state(&ceramic, &stream_id, None)
+			.load_stream_state(&ceramic, stream_id, None)
 			.await?;
 		let model_id = &stream_state.must_model()?;
 		let model = dapp::get_model(model_id).await?;
-		if model.dapp_id != dapp_id.clone() {
-			anyhow::bail!(
-				"stream_id {} with model_id {} not belong to dapp {}",
-				stream_id,
-				model_id,
-				dapp_id
-			);
+		if model.dapp_id != *dapp_id {
+			anyhow::bail!(FileClientError::StreamWithModelNotInDapp(stream_id.clone(), model_id.clone(), *dapp_id));
 		}
 		match model.name.as_str() {
 			"indexFile" => {
@@ -107,7 +103,7 @@ impl StreamFileTrait for Client {
 				if let Ok(content_id) = &index_file.content_id.parse() {
 					let content_state = self
 						.operator
-						.load_stream_state(&ceramic, &content_id, None)
+						.load_stream_state(&ceramic, content_id, None)
 						.await?;
 					file.write_content(content_state)?;
 				}
@@ -118,7 +114,7 @@ impl StreamFileTrait for Client {
 			_ => {
 				let mut file = StreamFile::new_with_content(stream_state)?;
 				let index_file_model_id = self
-					.get_file_model(&dapp_id, FileModel::IndexFile)
+					.get_file_model(dapp_id, FileModel::IndexFile)
 					.await?
 					.id;
 
@@ -168,13 +164,13 @@ impl StreamFileTrait for Client {
 		model_id: &StreamId,
 		options: Vec<LoadFilesOption>,
 	) -> Result<Vec<StreamFile>> {
-		let model = dapp::get_model(&model_id).await?;
+		let model = dapp::get_model(model_id).await?;
 		let app_id = model.dapp_id;
 		let ceramic = model.ceramic().await?;
 
 		let stream_states = self
 			.operator
-			.load_stream_states(&ceramic, account.clone(), &model_id)
+			.load_stream_states(&ceramic, account.clone(), model_id)
 			.await?;
 
 		match model.name.as_str() {
@@ -295,9 +291,7 @@ impl StreamFileTrait for Client {
 				}
 
 				// set verified_status to -1 if file_id is None (illegal file)
-				let files = file_map
-					.into_iter()
-					.map(|(_, mut file)| {
+				let files = file_map.into_values().map(|mut file| {
 						if file.file_id.is_none() {
 							if let Some(content_id) = file.content_id.clone() {
 								let desc = format!("file_id is None, content_id: {}", content_id);
@@ -336,7 +330,7 @@ impl StreamEventSaver for Client {
 		match &event.value {
 			EventValue::Signed(signed) => {
 				let (mut stream, mut commits) = {
-					let stream = self.stream_store.load_stream(&stream_id).await;
+					let stream = self.stream_store.load_stream(stream_id).await;
 					match stream.ok().flatten() {
 						Some(stream) => (
 							stream.clone(),
@@ -346,10 +340,7 @@ impl StreamEventSaver for Client {
 						),
 						None => {
 							if !signed.is_gensis() {
-								anyhow::bail!(
-									"publishing commit with stream_id {} not found in store",
-									stream_id
-								);
+								anyhow::bail!(FileClientError::CommitStreamIdNotFoundOnStore(stream_id.clone()));
 							}
 							(
 								Stream::new(dapp_id, stream_id.r#type.int_value(), event, None)?,
@@ -365,7 +356,7 @@ impl StreamEventSaver for Client {
 
 				if let Some(prev) = event.prev()? {
 					if commits.iter().all(|ele| ele.cid != prev) {
-						anyhow::bail!("donot have prev commit");
+						anyhow::bail!(FileClientError::NoPrevCommitFound);
 					}
 				}
 				commits.push(event.clone());
@@ -388,13 +379,13 @@ impl StreamEventSaver for Client {
 
 				self.stream_store.save_stream(&stream).await?;
 				self.operator
-					.upload_event(&ceramic, &stream_id, event.clone())
+					.upload_event(&ceramic, stream_id, event.clone())
 					.await?;
 
 				Ok(state)
 			}
 			EventValue::Anchor(_) => {
-				anyhow::bail!("anchor commit not supported");
+				anyhow::bail!(FileClientError::AnchorCommitUnsupported);
 			}
 		}
 	}

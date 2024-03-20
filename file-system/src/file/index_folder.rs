@@ -5,6 +5,7 @@ use serde_json::Value;
 use serde_repr::*;
 
 use super::{access_control::AccessControl, common::decode_base64};
+use crate::file::errors::IndexFolderError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,7 +43,7 @@ impl IndexFolder {
 			}
 			None => {
 				if self.folder_type != FolderType::PublicFolderType {
-					anyhow::bail!("access control is missing for folder")
+					anyhow::bail!(IndexFolderError::AccessControlMissing)
 				}
 				Ok(None)
 			}
@@ -91,7 +92,7 @@ mod tests {
 		assert!(index_folder.is_ok());
 		let index_folder = index_folder.unwrap();
 		assert!(index_folder.options().is_ok());
-		assert!(index_folder.access_control().is_err());
+		assert!(index_folder.access_control().is_ok());
 	}
 
 	#[test]

@@ -15,7 +15,7 @@ pub async fn new_queue(dsn: &str, max_pool_size: u32) -> anyhow::Result<Queue> {
 	builder.set_verify(SslVerifyMode::NONE);
 	let connector = MakeTlsConnector::new(builder.build());
 	queue.connect(connector).await?;
-	return Ok(queue);
+	Ok(queue)
 }
 
 pub fn build_pool(queue: Queue, num: u32) -> AsyncWorkerPool<AsyncQueue<MakeTlsConnector>> {

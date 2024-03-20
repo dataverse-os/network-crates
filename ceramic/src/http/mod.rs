@@ -1,3 +1,4 @@
+mod errors;
 mod task;
 
 pub use task::*;
@@ -6,6 +7,7 @@ use anyhow::{Context, Result};
 use ceramic_core::{Base64UrlString, Cid, StreamId};
 use ceramic_event::{DidDocument, JwkSigner};
 use ceramic_http_client::{api, remote::CeramicRemoteHttpClient, FilterQuery};
+use errors::HttpError;
 use int_enum::IntEnum;
 use json_patch::{patch, Patch};
 use ssi::jwk::Algorithm;
@@ -19,6 +21,12 @@ use crate::{
 };
 
 pub struct Client {}
+
+impl Default for Client {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Client {
 	pub fn new() -> Self {
@@ -63,7 +71,7 @@ impl Client {
 		let chains = http_client.chains().await?.supported_chains;
 		let chain = chains
 			.first()
-			.context("ceramic not in networks")?
+			.context(HttpError::CeramicNotInNetworkError)?
 			.parse::<Chain>()?;
 		Ok(chain.network())
 	}
@@ -124,7 +132,7 @@ impl EventsUploader for Client {
 					Err(err) => tracing::error!(cid, stream_id, ?err, "failed to publish data"),
 				};
 			}
-			_ => anyhow::bail!("invalid log type"),
+			_ => anyhow::bail!(HttpError::InvalidLogType),
 		};
 		Ok(())
 	}
@@ -140,7 +148,10 @@ impl StreamLoader for Client {
 	) -> anyhow::Result<StreamState> {
 		let ceramic = Self::init(&ceramic.endpoint)?;
 		let stream = ceramic.get(stream_id).await?;
-		let state = stream.state.context("Failed to load stream")?.try_into()?;
+		let state = stream
+			.state
+			.context(HttpError::StreamLoadError)?
+			.try_into()?;
 		Ok(state)
 	}
 }
@@ -183,6 +194,12 @@ type CeramicHTTPClient = CeramicRemoteHttpClient<NullSigner>;
 
 pub struct NullSigner;
 
+impl Default for NullSigner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NullSigner {
 	pub fn new() -> Self {
 		Self
@@ -200,7 +217,7 @@ impl ceramic_http_client::ceramic_event::Signer for NullSigner {
 	}
 
 	async fn sign(&self, _bytes: &[u8]) -> anyhow::Result<Base64UrlString> {
-		anyhow::bail!("NullSigner cannot sign")
+		anyhow::bail!(HttpError::NullSignerSignError);
 	}
 }
 

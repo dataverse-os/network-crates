@@ -1,3 +1,4 @@
+mod errors;
 pub mod file;
 
 use std::sync::Arc;
@@ -16,6 +17,8 @@ use iroh::rpc_protocol::DocTicket;
 use iroh_bytes::store::flat::Store as BaoFileStore;
 use iroh_sync::store::{Query, Store};
 use iroh_sync::{Author, AuthorId, NamespaceId, NamespacePublicKey, NamespaceSecret};
+
+use crate::errors::IrohClientError;
 
 pub struct Client {
 	pub iroh: Iroh,
@@ -55,9 +58,7 @@ impl Client {
 		let bao_path = data_path.join("iroh/bao");
 		let bao_store = BaoFileStore::load(&bao_path)
 			.await
-			.with_context(|| {
-				format!("Failed to load tasks database from {}", data_path.display())
-			})?;
+			.context(IrohClientError::TaskLoadingFailed(data_path.clone()))?;
 
 		let path = data_path.join("iroh/docs.redb");
 		let doc_store = iroh_sync::store::fs::Store::new(path)?;
@@ -143,7 +144,9 @@ impl Client {
 			let content: StreamId = StreamId::try_from(content.to_vec().as_slice())?;
 			return Ok(content);
 		}
-		anyhow::bail!("model of stream `{}` not found", stream_id)
+		anyhow::bail!(IrohClientError::ModelOfStreamNotFoundError(
+			stream_id.clone()
+		))
 	}
 
 	async fn set_model_of_stream(
@@ -162,7 +165,7 @@ impl Client {
 		model_id: &StreamId,
 		stream_id: &StreamId,
 	) -> anyhow::Result<Stream> {
-		let doc = &self.lookup_model_doc(&model_id).await?;
+		let doc = &self.lookup_model_doc(model_id).await?;
 		let key = stream_id.to_vec()?;
 		let mut stream = doc.get_many(Query::key_exact(key)).await?;
 		if let Some(entry) = stream.try_next().await? {
@@ -170,7 +173,10 @@ impl Client {
 			let content: Stream = serde_json::from_slice(&content)?;
 			return Ok(content);
 		}
-		anyhow::bail!("stream `{}` not found in model `{}`", stream_id, model_id)
+		anyhow::bail!(IrohClientError::StreamNotInModel(
+			stream_id.clone(),
+			model_id.clone()
+		))
 	}
 
 	async fn list_stream_in_model(&self, model_id: &StreamId) -> anyhow::Result<Vec<Stream>> {
@@ -206,8 +212,8 @@ impl StreamStore for Client {
 
 		match &stream.model {
 			Some(model) => {
-				self.set_model_of_stream(&stream_id, &model).await?;
-				self.lookup_model_doc(&model)
+				self.set_model_of_stream(&stream_id, model).await?;
+				self.lookup_model_doc(model)
 					.await?
 					.set_bytes(self.author, key, value)
 					.await?;
@@ -252,10 +258,7 @@ impl StreamsLoader for Client {
 			result.push(state);
 		}
 		if let Some(account) = account {
-			result = result
-				.into_iter()
-				.filter(|state| state.controllers().contains(&account))
-				.collect();
+			result.retain(|state| state.controllers().contains(&account));
 		}
 		Ok(result)
 	}
@@ -274,7 +277,7 @@ impl StreamLoader for Client {
 			None => {
 				self.load_stream(stream_id)
 					.await?
-					.context(format!("stream not found: {}", stream_id))?
+					.context(IrohClientError::StreamNotFound(stream_id.clone()))?
 					.tip
 			}
 		};

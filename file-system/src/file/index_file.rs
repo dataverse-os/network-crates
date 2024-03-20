@@ -10,7 +10,7 @@ use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::policy::Policy;
+use crate::{file::errors::IndexFileError, policy::Policy};
 
 use super::{
 	access_control::AccessControl,
@@ -43,7 +43,7 @@ impl IndexFile {
 	pub fn access_control(&self) -> anyhow::Result<Option<AccessControl>> {
 		match &self.access_control {
 			Some(acl) => {
-				let decoded = decode_base64(&acl)?;
+				let decoded = decode_base64(acl)?;
 				Ok(serde_json::from_slice(&decoded)?)
 			}
 			None => Ok(None),
@@ -123,7 +123,7 @@ impl IndexFileProcessor {
 	) -> anyhow::Result<()> {
 		let index_file: IndexFile = serde_json::from_value(data.clone())?;
 		if index_file.file_type == IndexFileType::Payable as u64 {
-			anyhow::bail!("file type cannot be changed");
+			anyhow::bail!(IndexFileError::FileTypeUnchangeable);
 		}
 		Ok(())
 	}
@@ -151,7 +151,7 @@ impl IndexFileProcessor {
 	) -> Result<()> {
 		match content_type.resource {
 			ContentTypeResourceType::IPFS => {
-				let cid = Cid::from_str(&content_id)?;
+				let cid = Cid::from_str(content_id)?;
 				log::debug!("content_id {} is ipfs cid", cid);
 			}
 			ContentTypeResourceType::CERAMIC => {
@@ -175,7 +175,7 @@ impl IndexFileProcessor {
 			for ele in linked_ceramic_models {
 				let model = dapp::get_model(&ele).await?;
 				if model.dapp_id != self.state.dapp_id {
-					anyhow::bail!("linked model not in same app");
+					anyhow::bail!(IndexFileError::LinkedModelNotInApp);
 				}
 			}
 		}

@@ -6,6 +6,8 @@ use dataverse_ceramic::Ceramic;
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
+use crate::store::errors::ModelStoreError;
+
 #[derive(Debug, Clone)]
 pub struct Model {
 	pub id: StreamId,
@@ -79,7 +81,7 @@ impl ModelStore {
 			};
 		}
 
-		anyhow::bail!("dapp {} not found", dapp_id)
+		anyhow::bail!(ModelStoreError::DappNotFound(*dapp_id))
 	}
 
 	async fn get_ceramic(&mut self, ceramic_str: &String) -> anyhow::Result<Ceramic> {
@@ -87,10 +89,10 @@ impl ModelStore {
 			return Ok(ceramic.clone());
 		}
 
-		let chains = dataverse_ceramic::http::Client::chains(&ceramic_str).await?;
+		let chains = dataverse_ceramic::http::Client::chains(ceramic_str).await?;
 		let ceramic = Ceramic {
 			endpoint: ceramic_str.clone(),
-			network: chains.first().context("ceramic not in networks")?.network(),
+			network: chains.first().context(ModelStoreError::CeramicNotInNetworks)?.network(),
 		};
 		self.ceramic.insert(ceramic_str.clone(), ceramic.clone());
 		Ok(ceramic)
@@ -103,9 +105,7 @@ impl ModelStore {
 	) -> anyhow::Result<Vec<Model>> {
 		if !online {
 			let models = self
-				.models
-				.iter()
-				.map(|(_, x)| x.clone())
+				.models.values().cloned()
 				.filter(|x| x.dapp_id == *dapp_id)
 				.collect();
 			return Ok(models);
@@ -121,7 +121,7 @@ impl ModelStore {
 			.lookup_dapp_by_dapp_id(&dapp_id.to_string())
 			.await?;
 		self.dapp_ceramic
-			.insert(dapp_id.clone(), dapp.ceramic.clone());
+			.insert(*dapp_id, dapp.ceramic.clone());
 		let ceramic = self.get_ceramic(&dapp.ceramic).await?;
 		let models = self.store_dapp_models(dapp)?;
 		Ok((ceramic, models))
@@ -170,11 +170,7 @@ impl ModelStore {
 			}
 		}
 
-		anyhow::bail!(
-			"model with name `{}` not found in dapp {}",
-			model_name,
-			dapp_id
-		)
+		anyhow::bail!(ModelStoreError::ModelNotInDapp(model_name.into(), *dapp_id))
 	}
 
 	pub async fn get_model(&mut self, model_id: &StreamId) -> anyhow::Result<Model> {
@@ -195,6 +191,6 @@ impl ModelStore {
 				return Ok(model);
 			}
 		}
-		anyhow::bail!("model with id `{}` not found in dapp table", model_id)
+		anyhow::bail!(ModelStoreError::ModelIDNotInDapp(model_id.clone()))
 	}
 }
