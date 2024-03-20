@@ -105,8 +105,7 @@ impl ModelStore {
 	) -> anyhow::Result<Vec<Model>> {
 		if !online {
 			let models = self
-				.models.values().cloned()
-				.filter(|x| x.dapp_id == *dapp_id)
+				.models.values().filter(|&x| x.dapp_id == *dapp_id).cloned()
 				.collect();
 			return Ok(models);
 		}

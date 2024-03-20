@@ -65,7 +65,7 @@ impl TryInto<Event> for Content {
 	fn try_into(self) -> Result<Event, Self::Error> {
 		Ok(Event {
 			cid: self.jws.cid()?,
-			value: EventValue::Signed(self.try_into()?),
+			value: EventValue::Signed(Box::new(self.try_into()?)),
 		})
 	}
 }

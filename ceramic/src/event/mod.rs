@@ -124,21 +124,21 @@ impl TryFrom<ceramic_http_client::api::Commit> for Event {
 		match value.value {
 			ceramic_http_client::api::CommitValue::Anchor(anchor) => Ok(Event {
 				cid: value.cid.as_ref().try_into()?,
-				value: EventValue::Anchor(AnchorValue {
+				value: EventValue::Anchor(Box::new(AnchorValue {
 					id: anchor.id.as_ref().try_into()?,
 					prev: anchor.prev.as_ref().try_into()?,
 					proof: anchor.proof.as_ref().try_into()?,
 					path: anchor.path,
 					proof_block: None,
-				}),
+				})),
 			}),
 			ceramic_http_client::api::CommitValue::Signed(signed) => Ok(Event {
 				cid: value.cid.as_ref().try_into()?,
-				value: EventValue::Signed(SignedValue {
+				value: EventValue::Signed(Box::new(SignedValue {
 					jws: signed.jws,
 					linked_block: Some(signed.linked_block.to_vec()?),
 					cacao_block: None,
-				}),
+				})),
 			}),
 		}
 	}
@@ -150,19 +150,19 @@ impl TryFrom<ceramic_core::Jws> for Event {
 	fn try_from(jws: ceramic_core::Jws) -> std::result::Result<Self, Self::Error> {
 		Ok(Self {
 			cid: jws.cid()?,
-			value: EventValue::Signed(SignedValue {
+			value: EventValue::Signed(Box::new(SignedValue {
 				jws,
 				linked_block: None,
 				cacao_block: None,
-			}),
+			})),
 		})
 	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EventValue {
-	Signed(SignedValue),
-	Anchor(AnchorValue),
+	Signed(Box<SignedValue>),
+	Anchor(Box<AnchorValue>),
 }
 
 trait StreamStateApplyer {
@@ -172,10 +172,10 @@ trait StreamStateApplyer {
 impl EventValue {
 	pub fn decode(codec: u64, data: Vec<u8>) -> Result<Self> {
 		match codec {
-			0x71 => Ok(EventValue::Anchor(
-				libipld::serde::from_ipld::<AnchorValue>(DagCborCodec.decode(&data)?)?,
-			)),
-			0x85 => Ok(EventValue::Signed(data.try_into()?)),
+			0x71 => Ok(EventValue::Anchor(Box::new(libipld::serde::from_ipld::<
+				AnchorValue,
+			>(DagCborCodec.decode(&data)?)?))),
+			0x85 => Ok(EventValue::Signed(Box::new(data.try_into()?))),
 			_ => anyhow::bail!(EventError::UnsupportedCodecError(codec)),
 		}
 	}

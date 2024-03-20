@@ -77,9 +77,9 @@ impl BlockUploader for Cached {
 
 #[async_trait::async_trait]
 impl MessagePublisher for Cached {
-	async fn publish_message(&self, topic: &String, msg: Vec<u8>) -> anyhow::Result<()> {
+	async fn publish_message(&self, topic: &str, msg: Vec<u8>) -> anyhow::Result<()> {
 		let task = UpdateMessagePublishHandler {
-			topic: topic.clone(),
+			topic: topic.into(),
 			msg,
 		};
 		if let Err(err) = self.queue.lock().await.insert_task(&task).await {

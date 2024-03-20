@@ -97,10 +97,10 @@ impl Policy for IndexFileProcessor {
 	async fn validate_patch_add_or_replace(
 		&self,
 		data: &Value,
-		path: &String,
+		path: &str,
 		value: &Value,
 	) -> Result<()> {
-		match path.as_str() {
+		match path {
 			"/accessControl" => {
 				let data = value.as_str().unwrap();
 				let acl: AccessControl = AccessControl::from_str(data)?;
@@ -146,7 +146,7 @@ impl IndexFileProcessor {
 
 	pub async fn validate_content(
 		&self,
-		content_id: &String,
+		content_id: &str,
 		content_type: &ContentType,
 	) -> Result<()> {
 		match content_type.resource {

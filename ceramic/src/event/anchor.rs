@@ -48,7 +48,7 @@ impl StreamStateApplyer for AnchorValue {
 
 impl From<AnchorValue> for EventValue {
 	fn from(val: AnchorValue) -> Self {
-		EventValue::Anchor(val)
+		EventValue::Anchor(Box::new(val))
 	}
 }
 

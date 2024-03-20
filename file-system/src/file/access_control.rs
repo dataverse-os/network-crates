@@ -34,18 +34,15 @@ impl EncryptionProvider {
 		let mut models = vec![];
 		if let Some(conditions) = &self.decryption_conditions {
 			for ele in conditions {
-				match ele {
-					DecryptionCondition::AccessControl(ele) => {
-						let model_id: StreamId = ele
-							.return_value_test
-							.value
-							.split('=')
-							.last()
-							.expect("failed to parse returnValueParse.value as ceramic streamId")
-							.parse()?;
-						models.push(model_id);
-					}
-					_ => {}
+				if let DecryptionCondition::AccessControl(ele) = ele {
+					let model_id: StreamId = ele
+						.return_value_test
+						.value
+						.split('=')
+						.last()
+						.expect("failed to parse returnValueParse.value as ceramic streamId")
+						.parse()?;
+					models.push(model_id);
 				}
 			}
 		}
@@ -100,9 +97,9 @@ pub struct BooleanCondition {
 #[serde(untagged)]
 pub enum UnifiedAccessControlConditions {
 	#[serde(rename_all = "camelCase")]
-	UnifiedAccessControl(UnifiedAccessControlCondition),
+	UnifiedAccessControl(Box<UnifiedAccessControlCondition>),
 	#[serde(rename_all = "camelCase")]
-	Boolean(BooleanCondition),
+	Boolean(Box<BooleanCondition>),
 }
 
 #[derive(Debug, Deserialize)]

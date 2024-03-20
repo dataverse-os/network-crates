@@ -30,7 +30,7 @@ pub trait Policy: Send + Sync {
 	async fn validate_patch_add_or_replace(
 		&self,
 		_data: &Value,
-		_path: &String,
+		_path: &str,
 		_value: &serde_json::Value,
 	) -> anyhow::Result<()> {
 		Ok(())

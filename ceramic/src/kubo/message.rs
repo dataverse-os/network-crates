@@ -75,7 +75,7 @@ pub trait MessageSubscriber: MessageResponsePublisher {
 				}
 			}
 			Message::Response { id, tips } => {
-				if let Some(_) = store.get(Some(id.clone()), None).await? {
+				if store.get(Some(id.clone()), None).await?.is_some() {
 					for (stream_id, tip) in tips {
 						let push = store
 							.push(Some(id.clone()), Some(stream_id.parse()?), tip.parse()?)
@@ -140,12 +140,12 @@ impl MessageSubscriber for Client {
 
 #[async_trait::async_trait]
 pub trait MessagePublisher {
-	async fn publish_message(&self, topic: &String, msg: Vec<u8>) -> anyhow::Result<()>;
+	async fn publish_message(&self, topic: &str, msg: Vec<u8>) -> anyhow::Result<()>;
 }
 
 #[async_trait::async_trait]
 impl MessagePublisher for Client {
-	async fn publish_message(&self, topic: &String, msg: Vec<u8>) -> anyhow::Result<()> {
+	async fn publish_message(&self, topic: &str, msg: Vec<u8>) -> anyhow::Result<()> {
 		let en_topic = multibase::encode(multibase::Base::Base64Url, topic);
 		let file = swagger::ByteArray(msg);
 		let res = self.pubsub_pub_post(en_topic, file).await?;
@@ -197,7 +197,7 @@ pub trait MessageResponsePublisher {
 	async fn publish_response(
 		&self,
 		network: &Network,
-		id: &String,
+		id: &str,
 		stream_id: &StreamId,
 		tip: &Cid,
 	) -> anyhow::Result<()>;
@@ -208,7 +208,7 @@ impl<T: MessagePublisher + Send + Sync> MessageResponsePublisher for T {
 	async fn publish_response(
 		&self,
 		network: &Network,
-		id: &String,
+		id: &str,
 		stream_id: &StreamId,
 		tip: &Cid,
 	) -> anyhow::Result<()> {

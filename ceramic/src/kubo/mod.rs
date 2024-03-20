@@ -78,15 +78,12 @@ pub trait CidLoader {
 #[async_trait::async_trait]
 impl CidLoader for Client {
 	async fn load_cid(&self, cid: &Cid) -> anyhow::Result<Vec<u8>> {
-		let result;
 		let timeout = Some("2s".into());
 
 		let res = self.block_get_post(cid.to_string(), timeout, None).await?;
 
-		match res {
-			BlockGetPostResponse::Success(bytes) => {
-				result = bytes.to_vec();
-			}
+		let result = match res {
+			BlockGetPostResponse::Success(bytes) => bytes.to_vec(),
 			BlockGetPostResponse::BadRequest(err) => {
 				tracing::warn!(?err, cid = cid.to_string(), "bad request");
 				anyhow::bail!("bad request: {:?}", err);
@@ -95,7 +92,7 @@ impl CidLoader for Client {
 				tracing::warn!(?err, cid = cid.to_string(), "internal error");
 				anyhow::bail!("internal error: {:?}", err);
 			}
-		}
+		};
 
 		Ok(result)
 	}

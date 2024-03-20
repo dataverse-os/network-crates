@@ -32,7 +32,7 @@ impl Clone for SignedValue {
 
 impl From<SignedValue> for EventValue {
 	fn from(val: SignedValue) -> Self {
-		EventValue::Signed(val)
+		EventValue::Signed(Box::new(val))
 	}
 }
 
