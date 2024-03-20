@@ -72,22 +72,22 @@ impl Client {
 			let mut prev_map: HashMap<Cid, Cid> = HashMap::new();
 			for (cid, event) in &map {
 				if let Some(prev) = event.prev()? {
-					prev_map.insert(prev, cid.clone());
+					prev_map.insert(prev, *cid);
 				}
 			}
 			let mut prev = stream_id.cid;
 			let genesis = map.get(&prev).context(PgSqlClientError::MissingGenesis)?;
 			result.push(genesis.clone());
 			while let Some(cid) = prev_map.get(&prev) {
-				let event = match map.get(&cid) {
+				let event = match map.get(cid) {
 					Some(event) => event,
 					None => anyhow::bail!(PgSqlClientError::MissingEventForStream(
-						cid.clone(),
+						*cid,
 						stream_id.clone()
 					)),
 				};
 				result.push(event.clone());
-				prev = cid.clone();
+				prev = *cid;
 			}
 		}
 

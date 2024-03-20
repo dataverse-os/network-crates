@@ -112,10 +112,10 @@ impl PolicyProcessor for dyn Policy {
 			Policy::validate_patches(self, patch).await?;
 			let result = match patch {
 				PatchOperation::Add(op) => {
-					Policy::validate_patch_add_or_replace(self, &data, &op.path, &op.value).await
+					Policy::validate_patch_add_or_replace(self, data, &op.path, &op.value).await
 				}
 				PatchOperation::Replace(op) => {
-					Policy::validate_patch_add_or_replace(self, &data, &op.path, &op.value).await
+					Policy::validate_patch_add_or_replace(self, data, &op.path, &op.value).await
 				}
 				_ => Ok(()),
 			};

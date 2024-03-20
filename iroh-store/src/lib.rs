@@ -165,7 +165,7 @@ impl Client {
 		model_id: &StreamId,
 		stream_id: &StreamId,
 	) -> anyhow::Result<Stream> {
-		let doc = &self.lookup_model_doc(&model_id).await?;
+		let doc = &self.lookup_model_doc(model_id).await?;
 		let key = stream_id.to_vec()?;
 		let mut stream = doc.get_many(Query::key_exact(key)).await?;
 		if let Some(entry) = stream.try_next().await? {
@@ -212,8 +212,8 @@ impl StreamStore for Client {
 
 		match &stream.model {
 			Some(model) => {
-				self.set_model_of_stream(&stream_id, &model).await?;
-				self.lookup_model_doc(&model)
+				self.set_model_of_stream(&stream_id, model).await?;
+				self.lookup_model_doc(model)
 					.await?
 					.set_bytes(self.author, key, value)
 					.await?;
@@ -258,10 +258,7 @@ impl StreamsLoader for Client {
 			result.push(state);
 		}
 		if let Some(account) = account {
-			result = result
-				.into_iter()
-				.filter(|state| state.controllers().contains(&account))
-				.collect();
+			result.retain(|state| state.controllers().contains(&account));
 		}
 		Ok(result)
 	}

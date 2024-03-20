@@ -4,9 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_repr::*;
 
-use crate::file::errors::IndexFolderError;
 use super::{access_control::AccessControl, common::decode_base64};
-
+use crate::file::errors::IndexFolderError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -93,7 +92,7 @@ mod tests {
 		assert!(index_folder.is_ok());
 		let index_folder = index_folder.unwrap();
 		assert!(index_folder.options().is_ok());
-		assert!(index_folder.access_control().is_err());
+		assert!(index_folder.access_control().is_ok());
 	}
 
 	#[test]

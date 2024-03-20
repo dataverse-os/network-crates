@@ -22,6 +22,12 @@ use crate::{
 
 pub struct Client {}
 
+impl Default for Client {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Client {
 	pub fn new() -> Self {
 		Self {}
@@ -187,6 +193,12 @@ pub async fn ceramic_client(ceramic: &str, pk: &str) -> Result<CeramicRemoteHttp
 type CeramicHTTPClient = CeramicRemoteHttpClient<NullSigner>;
 
 pub struct NullSigner;
+
+impl Default for NullSigner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl NullSigner {
 	pub fn new() -> Self {

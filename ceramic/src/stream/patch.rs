@@ -6,7 +6,7 @@ impl TryFrom<ceramic_http_client::api::StreamState> for StreamState {
 	fn try_from(value: ceramic_http_client::api::StreamState) -> Result<Self, Self::Error> {
 		let anchor_proof = value
 			.anchor_proof
-			.map(|x| serde_json::from_value(x))
+			.map(serde_json::from_value)
 			.transpose()?;
 		let anchor_status = serde_json::from_value(serde_json::Value::String(value.anchor_status))?;
 

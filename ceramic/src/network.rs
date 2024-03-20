@@ -132,10 +132,9 @@ impl Default for Providers {
 		rpcs.insert(Chain::EthereumGnosis, "https://rpc.gnosis.gateway.fm");
 
 		let providers_future = Self::new(rpcs).boxed();
-		let providers =
-			tokio::task::block_in_place(|| futures::executor::block_on(providers_future)).unwrap();
+		
 
-		providers
+		tokio::task::block_in_place(|| futures::executor::block_on(providers_future)).unwrap()
 	}
 }
 
@@ -148,7 +147,7 @@ impl Providers {
 			if chain_id.as_u64() != chain.int_value() {
 				anyhow::bail!("chain id mismatch for {:?} {}", chain, rpc);
 			}
-			providers.insert(chain.clone(), ProviderMiddleware(chain, provider.into()));
+			providers.insert(chain, ProviderMiddleware(chain, provider.into()));
 		}
 		Ok(Self { providers })
 	}
@@ -262,10 +261,10 @@ mod tests {
 	#[tokio::test]
 	async fn test_providers_new() {
 		let mut rpcs = HashMap::new();
-		rpcs.insert(Chain::EthereumMainnet, "https://eth.llamarpc.com".into());
+		rpcs.insert(Chain::EthereumMainnet, "https://eth.llamarpc.com");
 		rpcs.insert(
 			Chain::EthereumGnosis,
-			"https://rpc.gnosis.gateway.fm".into(),
+			"https://rpc.gnosis.gateway.fm",
 		);
 		let providers = Providers::new(rpcs).await;
 		assert!(providers.is_ok());

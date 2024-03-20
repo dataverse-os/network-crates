@@ -36,7 +36,7 @@ impl ToCid for JsonWebSignature {
 	}
 
 	fn to_vec(&self) -> anyhow::Result<Vec<u8>> {
-		Ok(DagJoseCodec.encode(&self)?)
+		DagJoseCodec.encode(&self)
 	}
 }
 
@@ -71,9 +71,9 @@ impl From<&ceramic_core::Jws> for Jws {
 	}
 }
 
-impl Into<ceramic_core::Jws> for Jws {
-	fn into(self) -> ceramic_core::Jws {
-		self.0
+impl From<Jws> for ceramic_core::Jws {
+	fn from(val: Jws) -> Self {
+		val.0
 	}
 }
 

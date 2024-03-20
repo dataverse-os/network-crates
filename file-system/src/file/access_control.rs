@@ -15,7 +15,7 @@ impl FromStr for AccessControl {
 	type Err = anyhow::Error;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let v = base64::engine::general_purpose::STANDARD_NO_PAD.decode(&s)?;
+		let v = base64::engine::general_purpose::STANDARD_NO_PAD.decode(s)?;
 		Ok(serde_json::from_slice::<Self>(&v)?)
 	}
 }
@@ -39,7 +39,7 @@ impl EncryptionProvider {
 						let model_id: StreamId = ele
 							.return_value_test
 							.value
-							.split("=")
+							.split('=')
 							.last()
 							.expect("failed to parse returnValueParse.value as ceramic streamId")
 							.parse()?;

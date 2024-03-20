@@ -47,7 +47,7 @@ impl CidLoader for Cached {
 		let data_opt;
 		{
 			let mut cache = self.cache.lock().await;
-			data_opt = cache.get(&cid).map(|data| data.to_vec());
+			data_opt = cache.get(cid).map(|data| data.to_vec());
 		}
 		if let Some(data) = data_opt {
 			return Ok(data);
@@ -55,7 +55,7 @@ impl CidLoader for Cached {
 		match self.client.load_cid(cid).await {
 			Ok(data) => {
 				let mut cache = self.cache.lock().await;
-				cache.put(cid.clone(), data.to_vec());
+				cache.put(*cid, data.to_vec());
 				Ok(data)
 			}
 			Err(err) => Err(err),

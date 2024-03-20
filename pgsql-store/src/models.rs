@@ -106,7 +106,7 @@ impl TryInto<dataverse_core::stream::Stream> for Stream {
 
 	fn try_into(self) -> Result<dataverse_core::stream::Stream, Self::Error> {
 		let model = match &self.model_id {
-			Some(model) => Some(StreamId::from_str(&model)?),
+			Some(model) => Some(StreamId::from_str(model)?),
 			None => None,
 		};
 		let stream_id = self.stream_id()?;

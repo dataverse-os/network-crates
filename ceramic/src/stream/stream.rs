@@ -204,7 +204,7 @@ mod tests {
 	#[test]
 	fn test_serialize_anchor_status() {
 		let status = AnchorStatus::Anchored;
-		let status = serde_json::to_value(&status);
+		let status = serde_json::to_value(status);
 		assert!(status.is_ok());
 		let status = status.unwrap();
 		assert_eq!(status, json!("ANCHORED"));

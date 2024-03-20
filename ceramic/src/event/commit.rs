@@ -86,7 +86,7 @@ where
 				cacao_block: signed.cacao_block.map(Base64String::from),
 			});
 		}
-		return Err(anyhow::anyhow!("invalid event value"));
+		Err(anyhow::anyhow!("invalid event value"))
 	}
 }
 
@@ -101,7 +101,7 @@ impl TryFrom<Event> for Content {
 				cacao_block: Base64String::from(signed.cacao_block.unwrap()),
 			});
 		}
-		return Err(anyhow::anyhow!("invalid event value"));
+		Err(anyhow::anyhow!("invalid event value"))
 	}
 }
 

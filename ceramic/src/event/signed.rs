@@ -30,9 +30,9 @@ impl Clone for SignedValue {
 	}
 }
 
-impl Into<EventValue> for SignedValue {
-	fn into(self) -> EventValue {
-		EventValue::Signed(self)
+impl From<SignedValue> for EventValue {
+	fn from(val: SignedValue) -> Self {
+		EventValue::Signed(val)
 	}
 }
 
@@ -103,7 +103,7 @@ impl SignedValue {
 	}
 
 	pub fn payload_link(&self) -> anyhow::Result<Cid> {
-		return Ok(Cid::try_from(self.jws.payload.to_vec()?)?);
+		Ok(Cid::try_from(self.jws.payload.to_vec()?)?)
 	}
 
 	pub fn cacao_link(&self) -> anyhow::Result<Cid> {
@@ -193,7 +193,7 @@ impl TryFrom<Vec<u8>> for Payload {
 
 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
 		let node: Ipld = DagCborCodec.decode(&value)?;
-		Ok(TryFrom::try_from(&node)?)
+		TryFrom::try_from(&node)
 	}
 }
 

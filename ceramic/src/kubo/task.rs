@@ -21,9 +21,9 @@ async fn get_kubo() -> Result<&'static Client, FangError> {
 		Some(kubo) => Ok(kubo),
 		None => {
 			tracing::error!("Kubo client not initialized");
-			return Err(FangError {
+			Err(FangError {
 				description: "Kubo client not initialized".to_string(),
-			});
+			})
 		}
 	}
 }

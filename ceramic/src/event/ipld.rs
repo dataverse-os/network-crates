@@ -16,7 +16,7 @@ impl IpldAs<Vec<u8>> for Ipld {
 impl IpldAs<Cid> for Ipld {
 	fn as_some(&self) -> Option<Cid> {
 		match self {
-			Ipld::Link(link) => Some(link.clone()),
+			Ipld::Link(link) => Some(*link),
 			_ => None,
 		}
 	}

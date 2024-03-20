@@ -8,17 +8,15 @@ pub struct ContentType {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Default)]
 pub enum ContentTypeResourceType {
-	CERAMIC,
+	#[default]
+ CERAMIC,
 	WEAVEDB,
 	IPFS,
 }
 
-impl Default for ContentTypeResourceType {
-	fn default() -> Self {
-		ContentTypeResourceType::CERAMIC
-	}
-}
+
 
 #[cfg(test)]
 mod tests {

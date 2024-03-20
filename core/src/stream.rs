@@ -30,7 +30,7 @@ impl Stream {
 	) -> anyhow::Result<Self> {
 		Ok(Stream {
 			r#type,
-			dapp_id: dapp_id.clone(),
+			dapp_id: *dapp_id,
 			tip: genesis.cid,
 			genesis: genesis.cid,
 			model,

@@ -43,7 +43,7 @@ impl IndexFile {
 	pub fn access_control(&self) -> anyhow::Result<Option<AccessControl>> {
 		match &self.access_control {
 			Some(acl) => {
-				let decoded = decode_base64(&acl)?;
+				let decoded = decode_base64(acl)?;
 				Ok(serde_json::from_slice(&decoded)?)
 			}
 			None => Ok(None),
@@ -151,7 +151,7 @@ impl IndexFileProcessor {
 	) -> Result<()> {
 		match content_type.resource {
 			ContentTypeResourceType::IPFS => {
-				let cid = Cid::from_str(&content_id)?;
+				let cid = Cid::from_str(content_id)?;
 				log::debug!("content_id {} is ipfs cid", cid);
 			}
 			ContentTypeResourceType::CERAMIC => {

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 
 use graphql_client::{GraphQLQuery, Response};
-use serde;
+
 
 use crate::errors::DappLookupError;
 
@@ -148,6 +148,6 @@ mod tests {
 		log::debug!("{:?}", dapps);
 		assert!(dapps.is_ok());
 		let dapps = dapps.unwrap();
-		assert!(dapps.len() > 0);
+		assert!(!dapps.is_empty());
 	}
 }

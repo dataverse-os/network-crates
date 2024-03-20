@@ -30,6 +30,7 @@ use self::status::Status;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct StreamFile {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub file_id: Option<StreamId>,
@@ -51,21 +52,7 @@ pub struct StreamFile {
 	pub verified_status_desc: Option<String>,
 }
 
-impl Default for StreamFile {
-	fn default() -> Self {
-		Self {
-			file_id: None,
-			file_model_id: None,
-			file: Default::default(),
-			content_id: Default::default(),
-			model_id: Default::default(),
-			content: Default::default(),
-			controller: Default::default(),
-			verified_status: Default::default(),
-			verified_status_desc: Default::default(),
-		}
-	}
-}
+
 
 impl StreamFile {
 	pub fn new_with_file(state: StreamState) -> anyhow::Result<Self> {
@@ -105,7 +92,7 @@ impl StreamFile {
 	}
 
 	pub fn write_status(&mut self, status: Status, desc: String) {
-		self.verified_status = status.clone();
+		self.verified_status = status;
 		self.verified_status_desc = Some(format!("{:?}: {}", status, desc));
 	}
 }

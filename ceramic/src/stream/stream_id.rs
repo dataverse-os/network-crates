@@ -5,7 +5,7 @@ pub struct StreamIdType(ceramic_core::StreamIdType);
 
 impl From<ceramic_core::StreamIdType> for StreamIdType {
 	fn from(value: ceramic_core::StreamIdType) -> Self {
-		return StreamIdType(value);
+		StreamIdType(value)
 	}
 }
 
@@ -17,14 +17,14 @@ impl TryFrom<u64> for StreamIdType {
 	}
 }
 
-impl Into<ceramic_core::StreamIdType> for StreamIdType {
-	fn into(self) -> ceramic_core::StreamIdType {
-		self.0
+impl From<StreamIdType> for ceramic_core::StreamIdType {
+	fn from(val: StreamIdType) -> Self {
+		val.0
 	}
 }
 
-impl Into<u64> for StreamIdType {
-	fn into(self) -> u64 {
+impl From<StreamIdType> for u64 {
+	fn from(_val: StreamIdType) -> Self {
 		todo!()
 	}
 }
